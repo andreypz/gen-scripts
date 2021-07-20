@@ -39,16 +39,16 @@ def setup_histograms():
         'dilep_m'    : np.linspace(50,120,50),
         'dilep_pt'   : np.linspace(0,600,100),
 
-        'z_mass'     : np.linspace(50,120,40),
+        'z_mass'     : np.linspace(50,120,50),
         'z_pt'       : np.linspace(0,600,100),
         'njet'       : np.linspace(0,3,6),
         'njet10'     : np.linspace(0,3,6),
         'jet_eta'    : np.linspace(-5,5,50),
         'jet_pt'     : np.linspace(0,500,50),
         'j_ht'       : np.linspace(0,500,50),
-        'dijet_m'    : np.linspace(0,600,40),
+        'dijet_m'    : np.linspace(0,600,50),
         'dijet_pt'   : np.linspace(0,600,100),
-        'dijet_dr'   : np.linspace(0,5,40),
+        'dijet_dr'   : np.linspace(0,5,50),
 
     } 
 
@@ -56,7 +56,7 @@ def setup_histograms():
                     observable : (
                                     Hist.new
                                     .Var(binning, name=observable, label=observable)
-                                    .Int64()
+                                    .Double()
                                 )
                     for observable, binning in bins.items()
     }
