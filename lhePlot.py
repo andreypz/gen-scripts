@@ -6,17 +6,17 @@ import numpy as np
 from hist import Hist
 from lhereader import LHEReader
 from matplotlib import pyplot as plt
-
+import pickle as pkl
 
 import argparse
-parser = argparse.ArgumentParser(description='Run quick plots', usage="./xx lhefile")
+parser = argparse.ArgumentParser(description='Run quick plots', usage="./xx inputfile")
 parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
-parser.add_argument("lhefile")
+parser.add_argument("inputfile")
 
 opt = parser.parse_args()
 
 
-def plot(histograms):
+def plot(histograms, fromPickles=False):
     '''Plots all histograms. No need to change.'''
     outdir = opt.outdir
     if not os.path.exists(outdir):
@@ -27,13 +27,21 @@ def plot(histograms):
         histogram.plot()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
+    if not fromPickles:
+        pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
+
+def plotFromPickles(inputfile):
+    hists = pkl.load(open(inputfile,'rb'))
+    # print(hists)
+    plot(hists, True)
+
 def setup_histograms():
     '''Histogram initialization. Add new histos here.'''
 
     # Bin edges for each observable
     bins ={
         'wei'        : np.linspace(-50,50,100),
-        'nlep'       : np.linspace(0,3,6),
+        'nlep'       : np.linspace(0,6,6),
         'lep_eta'    : np.linspace(-5,5,50),
         'lep_pt'     : np.linspace(0,500,50),
         'dilep_m'    : np.linspace(50,120,50),
@@ -41,12 +49,12 @@ def setup_histograms():
 
         'z_mass'     : np.linspace(50,120,50),
         'z_pt'       : np.linspace(0,600,100),
-        'njet'       : np.linspace(0,3,6),
-        'njet10'     : np.linspace(0,3,6),
+        'njet'       : np.linspace(0,6,6),
+        'njet15'     : np.linspace(0,6,6),
         'jet_eta'    : np.linspace(-5,5,50),
         'jet_pt'     : np.linspace(0,500,50),
-        'j_ht'       : np.linspace(0,500,50),
-        'dijet_m'    : np.linspace(0,600,50),
+        'jets_ht'    : np.linspace(0,500,50),
+        'dijet_m'    : np.linspace(0,1200,50),
         'dijet_pt'   : np.linspace(0,600,100),
         'dijet_dr'   : np.linspace(0,5,50),
 
@@ -89,14 +97,14 @@ def analyze(lhe_file):
         leptons = [x for x in event.particles if abs(x.pdgid) in (11,13,15)]
         Zs = [x for x in event.particles if x.pdgid==23]
         jets = [x for x in event.particles if abs(x.pdgid) in (1,2,3,4,5,21) and x.status==1]
-        jets10 = [x for x in event.particles if abs(x.pdgid) in (1,2,3,4,5,21) and x.status==1 and x.p4().pt>10]
+        jets15 = [x for x in event.particles if abs(x.pdgid) in (1,2,3,4,5,21) and x.status==1 and x.p4().pt>15]
 
         nlep = len(leptons)
         njet = len(jets)
-        njet10 = len(jets10)
+        njet15 = len(jets15)
         histograms['nlep'].fill(nlep, weight=1)
         histograms['njet'].fill(njet, weight=1)
-        histograms['njet10'].fill(njet10, weight=1)
+        histograms['njet15'].fill(njet15, weight=1)
 
         if nlep!=2:
             print("nlep=%i"%nlep)
@@ -116,16 +124,13 @@ def analyze(lhe_file):
         vmass = v_p4.mass
         
         if vpt<250 or vpt>400: continue
-        if vmass<60 or vmass>120: continue
+        if vmass<50 or vmass>130: continue
 
         wei = event.weights[0]
         #wei = 1
         #print(wei)
-        if abs(wei) not in (11.397, 11.396):
-            print(wei)
-            continue
-        histograms['wei'].fill(wei, weight=1)
 
+        histograms['wei'].fill(wei, weight=1)
 
         histograms['dilep_m'].fill(vmass, weight=wei)
         histograms['dilep_pt'].fill(vpt, weight=wei)
@@ -154,15 +159,16 @@ def analyze(lhe_file):
                 j_p4 = j.p4()
 
 
-        histograms['j_ht'].fill(j_p4.pt, weight=wei)
+        histograms['jets_ht'].fill(j_p4.pt, weight=wei)
 
-        if njet10>=2:
-            j1 = jets10[0].p4()
-            j2 = jets10[1].p4()
+        if njet15>=2:
+            j1 = jets15[0].p4()
+            j2 = jets15[1].p4()
+            dijet_dr = j1.deltar(j2)
             dijet_pt = (j1+j2).pt
             dijet_mass = (j1+j2).mass
-            if dijet_pt<250 or dijet_pt>400: continue
-            histograms['dijet_dr'].fill(j1.deltar(j2), weight=wei)
+
+            histograms['dijet_dr'].fill(dijet_dr, weight=wei)
             histograms['dijet_m'].fill(dijet_mass, weight=wei)
             histograms['dijet_pt'].fill(dijet_pt, weight=wei)
 
@@ -175,5 +181,8 @@ def analyze(lhe_file):
 if __name__ == "__main__":
     print("This is the __main__ part")
 
-    histograms = analyze(opt.lhefile)
-    plot(histograms)
+    if opt.inputfile.endswith(".lhe"):
+        histograms = analyze(opt.inputfile)
+        plot(histograms)
+    elif  opt.inputfile.endswith(".pkl"):
+        plotFromPickles(opt.inputfile)
