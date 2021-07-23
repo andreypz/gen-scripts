@@ -64,7 +64,7 @@ def setup_histograms():
                     observable : (
                                     Hist.new
                                     .Var(binning, name=observable, label=observable)
-                                    .Double()
+                                    .Weight()
                                 )
                     for observable, binning in bins.items()
     }

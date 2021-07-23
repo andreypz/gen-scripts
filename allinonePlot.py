@@ -4,6 +4,7 @@ import os
 from hist import Hist
 from matplotlib import pyplot as plt
 import pickle as pkl
+import mplhep as hep
 
 import argparse
 parser = argparse.ArgumentParser(description='Run quick plots')
@@ -22,6 +23,7 @@ def plot(h2016_nj,h2017_1j,h2017_2j):
     observables = h2016_nj.keys()
     for obs in observables:
       print(obs)
+      if obs in ['wei','lep_eta','z_mass','jet_pt','dijet_pt']: continue 
 
       h_2016_nj = h2016_nj[obs]
       h_2017_1j = h2017_1j[obs]
@@ -32,15 +34,19 @@ def plot(h2016_nj,h2017_1j,h2017_2j):
       h_2017_2j.plot(label='2017 2j')
       plt.legend(prop={'size': 10})
       plt.gcf().savefig(f"{outdir}/{obs}.png")
-
+      
+      # print(type(h_2017_1j))
       h_2017_nj =  h_2017_1j +  h_2017_2j
       plt.gcf().clf()
-      h_2016_nj.plot(label='2016 1+2j')
-      h_2017_nj.plot(label='2017 1+2j')
+      #fig, (ax1, ax2) = plt.subplots(nrows=2)
+      hep.histplot(h_2016_nj, label='2016 1+2j')
+      hep.histplot(h_2017_nj, label='2017 1+2j')
+      #ax2.plot(h_2016_nj/h_2017_nj)
+      h_2017_nj.plot_ratio(h_2016_nj)
       plt.legend(prop={'size': 10})
+      #ax2.set_xlabel(obs)
+      #ax2.set_ylabel('ratio')
       plt.gcf().savefig(f"{outdir}_scaled/{obs}.png")
-
-
 
 
 def readFromPickles(inputfile):
