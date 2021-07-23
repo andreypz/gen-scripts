@@ -39,8 +39,10 @@ def plot(h2016_nj,h2017_1j,h2017_2j):
       h_2017_nj =  h_2017_1j +  h_2017_2j
       plt.gcf().clf()
       #fig, (ax1, ax2) = plt.subplots(nrows=2)
-      hep.histplot(h_2016_nj, label='2016 1+2j')
-      hep.histplot(h_2017_nj, label='2017 1+2j')
+      #hep.histplot(h_2016_nj, label='2016 1+2j')
+      #hep.histplot(h_2017_nj, label='2017 1+2j')
+      #h_2016_nj.plot(label='2016 1+2j')
+      #h_2017_nj.plot(label='2017 1+2j')
       #ax2.plot(h_2016_nj/h_2017_nj)
       h_2017_nj.plot_ratio(h_2016_nj)
       plt.legend(prop={'size': 10})
