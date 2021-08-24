@@ -8,7 +8,8 @@ import uproot as up
 from lhePlot import setup_histograms, plot
 from skhep.math import LorentzVector
 import awkward as ak
-from coffea.nanoevents import NanoEventsFactory, NanoGENSchema
+from coffea.nanoevents import NanoEventsFactory
+from Coffea_NanoGEN_schema import NanoGENSchema
 
 def loop(in_file):
     histograms = setup_histograms()
