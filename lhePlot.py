@@ -8,17 +8,8 @@ from lhereader import LHEReader
 from matplotlib import pyplot as plt
 import pickle as pkl
 
-import argparse
-parser = argparse.ArgumentParser(description='Run quick plots', usage="./xx inputfile")
-parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
-parser.add_argument("inputfile")
-
-opt = parser.parse_args()
-
-
-def plot(histograms, fromPickles=False):
+def plot(histograms, outdir, fromPickles=False):
     '''Plots all histograms. No need to change.'''
-    outdir = opt.outdir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -30,18 +21,18 @@ def plot(histograms, fromPickles=False):
     if not fromPickles:
         pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
 
-def plotFromPickles(inputfile):
+def plotFromPickles(inputfile, outdir):
     hists = pkl.load(open(inputfile,'rb'))
     # print(hists)
-    plot(hists, True)
+    plot(hists, outdir, True)
 
 def setup_histograms():
     '''Histogram initialization. Add new histos here.'''
 
     # Bin edges for each observable
     bins ={
-        'wei'        : np.linspace(-50,50,100),
-        'nlep'       : np.linspace(0,6,6),
+        'wei'        : np.linspace(-5,5,50),
+        'nlep'       : np.linspace(0,6,12),
         'lep_eta'    : np.linspace(-5,5,50),
         'lep_pt'     : np.linspace(0,500,50),
         'dilep_m'    : np.linspace(50,120,50),
@@ -49,8 +40,8 @@ def setup_histograms():
 
         'z_mass'     : np.linspace(50,120,50),
         'z_pt'       : np.linspace(0,600,100),
-        'njet'       : np.linspace(0,6,6),
-        'njet15'     : np.linspace(0,6,6),
+        'njet'       : np.linspace(0,6,12),
+        'njet15'     : np.linspace(0,6,12),
         'jet_eta'    : np.linspace(-5,5,50),
         'jet_pt'     : np.linspace(0,500,50),
         'jets_ht'    : np.linspace(0,500,50),
@@ -107,7 +98,7 @@ def analyze(lhe_file):
         histograms['njet15'].fill(njet15, weight=1)
 
         if nlep!=2:
-            print("nlep=%i"%nlep)
+            print("Not 2L channel!  nlep=%i"%nlep)
             continue
 
         # Sum over all lepton four-momenta in the event
@@ -122,15 +113,18 @@ def analyze(lhe_file):
         
         vpt = v_p4.pt
         vmass = v_p4.mass
-        
-        if vpt<250 or vpt>400: continue
-        if vmass<50 or vmass>130: continue
 
         wei = event.weights[0]
         #wei = 1
         #print(wei)
+        histograms['wei'].fill(wei/abs(wei), weight=1)
+        
+        
+        if vpt<160 or vpt>240: continue
+        #if vpt<260 or vpt>390: continue
+        if vmass<60 or vmass>120: continue
+        if njet15<2: continue
 
-        histograms['wei'].fill(wei, weight=1)
 
         histograms['dilep_m'].fill(vmass, weight=wei)
         histograms['dilep_pt'].fill(vpt, weight=wei)
@@ -181,8 +175,17 @@ def analyze(lhe_file):
 if __name__ == "__main__":
     print("This is the __main__ part")
 
+    import argparse
+    parser = argparse.ArgumentParser(description='Run quick plots from LHE input files')
+    parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
+    parser.add_argument("inputfile")
+    
+    opt = parser.parse_args()
+
+
+
     if opt.inputfile.endswith(".lhe"):
         histograms = analyze(opt.inputfile)
-        plot(histograms)
+        plot(histograms, opt.outdir)
     elif  opt.inputfile.endswith(".pkl"):
-        plotFromPickles(opt.inputfile)
+        plotFromPickles(opt.inputfile, opt.outdir)
