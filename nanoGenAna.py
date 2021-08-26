@@ -156,11 +156,11 @@ def coffea(in_file):
 
     selected_events = events[two_lep & two_jets & vpt_cut & vmass_cut]
     
-    #wei = 1
     wei_nosel = events.genWeight
     wei = events[full_selection].genWeight
-    print(wei, len(wei))
-
+    wei = 1
+    #print(wei, len(wei))
+    
     histograms['wei'].fill(wei_nosel/np.abs(wei_nosel), weight=1)
 
     histograms['dilep_m'].fill(vmass[full_selection], weight=wei)
@@ -179,6 +179,12 @@ def coffea(in_file):
     histograms['dijet_pt'].fill(dijet_pt[full_selection], weight=wei)
 
     histograms['jets_ht'].fill(dijet_pt[full_selection], weight=wei)    
+
+
+    histograms['LHE_Vpt'] = Hist.new.Var(np.linspace(0,600,100), name="LHE_Vpt", label="LHE_Vpt").Weight()
+    histograms['LHE_Vpt'].fill(events[full_selection].LHE["Vpt"], weight=wei)
+
+    print(events.LHE, events[full_selection].LHE["Vpt"])
 
     print("Events with two leptons:", len(LL_events) )
     print("Events with two jets:", len(JJ_events) )

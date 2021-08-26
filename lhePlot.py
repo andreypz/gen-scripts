@@ -31,26 +31,27 @@ def setup_histograms():
 
     # Bin edges for each observable
     bins ={
-        'wei'        : np.linspace(-5,5,50),
-        'nlep'       : np.linspace(0,6,12),
-        'lep_eta'    : np.linspace(-5,5,50),
-        'lep_pt'     : np.linspace(0,500,50),
-        'dilep_m'    : np.linspace(50,120,50),
-        'dilep_pt'   : np.linspace(0,600,100),
+        'wei'        : np.linspace(-5,5,51),
+        'nlep'       : np.linspace(0,6,13),
+        'lep_eta'    : np.linspace(-5,5,51),
+        'lep_pt'     : np.linspace(0,500,51),
+        'dilep_m'    : np.linspace(50,120,51),
+        'dilep_pt'   : np.linspace(0,600,101),
 
-        'z_mass'     : np.linspace(50,120,50),
-        'z_pt'       : np.linspace(0,600,100),
-        'njet'       : np.linspace(0,6,12),
-        'njet15'     : np.linspace(0,6,12),
-        'jet_eta'    : np.linspace(-5,5,50),
-        'jet_pt'     : np.linspace(0,500,50),
-        'jets_ht'    : np.linspace(0,500,50),
-        'dijet_m'    : np.linspace(0,1200,50),
-        'dijet_pt'   : np.linspace(0,600,100),
-        'dijet_dr'   : np.linspace(0,5,50),
+        'z_mass'     : np.linspace(50,120,51),
+        'z_pt'       : np.linspace(0,600,101),
+        'njet'       : np.linspace(0,6,13),
+        'njet15'     : np.linspace(0,6,13),
+        'jet_eta'    : np.linspace(-5,5,51),
+        'jet_pt'     : np.linspace(0,500,51),
+        'jets_ht'    : np.linspace(0,500,51),
+        'dijet_m'    : np.linspace(0,1200,51),
+        'dijet_pt'   : np.linspace(0,600,101),
+        'dijet_dr'   : np.linspace(0,5,51),
 
     } 
 
+    print(bins["njet15"])
     histograms = { 
                     observable : (
                                     Hist.new
