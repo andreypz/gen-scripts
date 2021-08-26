@@ -158,7 +158,7 @@ def coffea(in_file):
     
     wei_nosel = events.genWeight
     wei = events[full_selection].genWeight
-    wei = 1
+    #wei = 1
     #print(wei, len(wei))
     
     histograms['wei'].fill(wei_nosel/np.abs(wei_nosel), weight=1)

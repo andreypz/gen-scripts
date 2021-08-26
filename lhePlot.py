@@ -51,7 +51,6 @@ def setup_histograms():
 
     } 
 
-    print(bins["njet15"])
     histograms = { 
                     observable : (
                                     Hist.new

@@ -94,7 +94,7 @@ class Processor(processor.ProcessorABC):
         selected_events = events[full_selection]
 
         weight = selected_events.genWeight
-        weight = np.ones(len(selected_events))
+        #weight = np.ones(len(selected_events))
 
         output['dilep_m'].fill(dataset=dataset, dilep_m=vmass[full_selection], weight=weight)
         output['dilep_pt'].fill(dataset=dataset, dilep_pt=vpt[full_selection], weight=weight)
@@ -130,7 +130,7 @@ def plot(histograms, outdir, fromPickles=False):
         plt.gcf().clf()
         #hist.plot1d(histogram, overlay='dataset', fill_opts={'edgecolor': (0,0,0,0.3), 'alpha': 0.8}, line_opts={})
         hist.plot1d(histogram, overlay='dataset', line_opts={}, error_opts={"visible":True}, overflow='none')
-        #plt.ylim(-100, 400)
+        plt.gca().autoscale()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
     if not fromPickles:
