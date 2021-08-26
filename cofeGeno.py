@@ -11,13 +11,25 @@ from coffea.nanoevents import NanoEventsFactory
 
 from Coffea_NanoGEN_schema import NanoGENSchema
 
+
+def getRootFiles(d, lim=None):
+    if "xrootd" in d:
+        import subprocess
+        sp = d.split("/")
+        siteIP = "/".join(sp[0:3])
+        pathToFiles = "/".join(sp[3:-1])
+        allfiles = str(subprocess.check_output(["xrdfs", siteIP, "ls", pathToFiles]), 'utf-8').split("\n")
+        rootfiles = [siteIP+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
+    else:
+        rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
+    # print(rootfiles)
+    return rootfiles
 class Processor(processor.ProcessorABC):
     def __init__(self):
-        # Bins and categories for the histogram are defined here. For format, see https://coffeateam.github.io/coffea/stubs/coffea.hist.hist_tools.Hist.html && https://coffeateam.github.io/coffea/stubs/coffea.hist.hist_tools.Bin.html
         
         axis = { "dataset": hist.Cat("dataset", ""),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "V PT [GeV]", 100, 0, 600),                 
-                 'wei'        : hist.Bin("wei", "wei", 100, -50, 50), 
+                 'wei'        : hist.Bin("wei", "wei", 50, -10, 10), 
                  'nlep'       : hist.Bin("nlep", "nlep", 12, 0, 6), 
                  'lep_eta'    : hist.Bin("lep_eta", "lep_eta", 50, -5, 5), 
                  'lep_pt'     : hist.Bin("lep_pt", "lep_pt", 50, 0, 500), 
@@ -31,7 +43,6 @@ class Processor(processor.ProcessorABC):
                  'dijet_pt'   : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600)
              }
         
-        # The accumulator keeps our data chunks together for histogramming. It also gives us cutflow, which can be used to keep track of data.
         self._accumulator = processor.dict_accumulator( 
             {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable!="dataset"}
         )
@@ -44,7 +55,7 @@ class Processor(processor.ProcessorABC):
     
     def process(self, events):
         output = self.accumulator.identity()
-        print(output)
+        #print(output)
 
         dataset = events.metadata["dataset"]
         LHE_Vpt = events.LHE['Vpt']
@@ -73,25 +84,28 @@ class Processor(processor.ProcessorABC):
         output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons))
         output['njet15'].fill(dataset=dataset, njet15=ak.num(jets15))
 
-        zLL = leptons[:, 0] + leptons[:, 1]
-        dijet = jets15[:, 0] + jets15[:, 1]
-    
+        two_lep = ak.num(leptons) == 2
+        zLL = leptons[two_lep][:, 0] + leptons[two_lep][:, 1]
         vpt = zLL.pt
         vmass = zLL.mass
         
-        dijet_pt = dijet.pt
-        dijet_m  = dijet.mass
-        dijet_dr = jets15[:, 0].delta_r(jets15[:, 1])
-        
-
-        two_lep = ak.num(leptons) == 2
-        two_jets = ak.num(jets15) >= 2
         vpt_cut =  (vpt>=260) & (vpt<=390)
         vmass_cut = (vmass>=60) & (vmass<=120)
+
+        two_jets = ak.num(jets15) >= 2
        
         full_selection = two_lep & two_jets & vpt_cut & vmass_cut
 
         selected_events = events[full_selection]
+        output['cutflow']['seleced_events'] += len(selected_events)
+
+        j_2l2j = jets15[full_selection]
+        dijet = j_2l2j[:, 0] + j_2l2j[:, 1]    
+
+        dijet_pt = dijet.pt
+        dijet_m  = dijet.mass
+        dijet_dr = j_2l2j[:, 0].delta_r(j_2l2j[:, 1])
+        
 
         weight = selected_events.genWeight
         #weight = np.ones(len(selected_events))
@@ -105,9 +119,9 @@ class Processor(processor.ProcessorABC):
         output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(jets15.eta[full_selection]))
         output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(jets15.pt[full_selection]))
         
-        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr[full_selection], weight=weight)
-        output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m[full_selection], weight=weight)
-        output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt[full_selection], weight=weight)
+        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
+        output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
+        output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
 
         return output
 
@@ -129,7 +143,7 @@ def plot(histograms, outdir, fromPickles=False):
             continue
         plt.gcf().clf()
         #hist.plot1d(histogram, overlay='dataset', fill_opts={'edgecolor': (0,0,0,0.3), 'alpha': 0.8}, line_opts={})
-        hist.plot1d(histogram, overlay='dataset', line_opts={}, error_opts={"visible":True}, overflow='none')
+        hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
         plt.gca().autoscale()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
@@ -152,14 +166,19 @@ if __name__ == "__main__":
     import time
     
     #client = Client("tls://localhost:8786")
-    p2017_DY2_LHE_250_400 = "/net/data_cms/institut_3a/NanoGEN/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000"
-    p2017_DY1_LHE_250_400 = "/net/data_cms/institut_3a/NanoGEN/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000"
-    p2016_DYn_LHE_250_400 = "/net/data_cms/institut_3a/NanoGEN/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000"
+    ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/NanoGEN/"
+    #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
+    p2016_DYn_LHE_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Summer15/FromGridPack-12Aug2021/210812_100639/0000/"
+    p2017_DY1_LHE_250_400 = ntuples_location + "/DY1JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100210/0000/"
+    p2017_DY2_LHE_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000"
     file_list = {
-        '2017_DY1J' :  [p2017_DY2_LHE_250_400+"/Tree_1.root"],
-        #'2017_DY1J' :  [path.join(p2017_DY2_LHE_250_400,f) for f in listdir(p2017_DY2_LHE_250_400) if path.isfile(path.join(p2017_DY2_LHE_250_400, f))]
-               
-           }
+        '2016_DYnJ' :  getRootFiles(p2016_DYn_LHE_250_400),
+        '2017_DY1J' :  getRootFiles(p2017_DY1_LHE_250_400),
+        '2017_DY2J' :  getRootFiles(p2017_DY2_LHE_250_400),
+        #'2017_DY1J' :  [p2017_DY1_LHE_250_400+"/Tree_1.root"],
+        #'2017_DY2J' :  [p2017_DY2_LHE_250_400+"/Tree_1.root"],
+        #'2016_DYnJ' :  [p2016_DYn_LHE_250_400+"/Tree_1.root"],
+    }
     
     output = processor.run_uproot_job(file_list,
                                       treename = 'Events',
