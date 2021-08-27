@@ -136,7 +136,7 @@ def plot(histograms, outdir, fromPickles=False):
         makedirs(outdir)
 
     for observable, histogram in histograms.items():
-        print (observable, histogram, type(histogram))
+        #print (observable, histogram, type(histogram))
         if type(histogram) is hist.hist_tools.Hist:
             print(observable, "I am a Hist")
         else:
@@ -150,6 +150,10 @@ def plot(histograms, outdir, fromPickles=False):
     if not fromPickles:
         pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
 
+def plotFromPickles(inputfile, outdir):
+    hists = pkl.load(open(inputfile,'rb'))
+    plot(hists, outdir, True)
+
 if __name__ == "__main__":
     print("This is the __main__ part")
 
@@ -157,6 +161,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run quick plots from NanoGEN input files')
     #parser.add_argument("inputfile")
     parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
+    parser.add_argument('--pkl', type=str, default=None,  help="Make plots from pickled file.")
 
     opt = parser.parse_args()
 
@@ -170,7 +175,7 @@ if __name__ == "__main__":
     #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
     p2016_DYn_LHE_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Summer15/FromGridPack-12Aug2021/210812_100639/0000/"
     p2017_DY1_LHE_250_400 = ntuples_location + "/DY1JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100210/0000/"
-    p2017_DY2_LHE_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000"
+    p2017_DY2_LHE_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000/"
     file_list = {
         '2016_DYnJ' :  getRootFiles(p2016_DYn_LHE_250_400),
         '2017_DY1J' :  getRootFiles(p2017_DY1_LHE_250_400),
@@ -180,21 +185,24 @@ if __name__ == "__main__":
         #'2016_DYnJ' :  [p2016_DYn_LHE_250_400+"/Tree_1.root"],
     }
     
-    output = processor.run_uproot_job(file_list,
-                                      treename = 'Events',
-                                      processor_instance = Processor(),
-                                      #executor = processor.iterative_executor,
-                                      executor = processor.futures_executor,
-                                      executor_args = {'schema': NanoGENSchema, "workers":8}
-                                )
+    if opt.pkl!=None:
+        plotFromPickles(opt.pkl, opt.outdir)
+    else:
+        output = processor.run_uproot_job(file_list,
+                                          treename = 'Events',
+                                          processor_instance = Processor(),
+                                          #executor = processor.iterative_executor,
+                                          executor = processor.futures_executor,
+                                          executor_args = {'schema': NanoGENSchema, "workers":8}
+                                      )
+        
+        
+        
+        plot(output, opt.outdir)
     
     
-    
-    plot(output, opt.outdir)
-    
-    
-    for key, value in output['cutflow'].items():
-        print(key, value)
+        for key, value in output['cutflow'].items():
+            print(key, value)
 
         
         

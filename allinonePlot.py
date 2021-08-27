@@ -109,9 +109,11 @@ if __name__ == "__main__":
     #h2017_1j = readFromPickles('plots_2017_1j_ZpT_260to390/Pickles.pkl')
     #h2017_2j = readFromPickles('plots_2017_2j_ZpT_260to390/Pickles.pkl')
 
-    h2016_nj = readFromPickles('plots_2016_nj_ZpT_160_240/Pickles.pkl')
-    h2017_1j = readFromPickles('plots_2017_1j_ZpT_160_240/Pickles.pkl')
-    h2017_2j = readFromPickles('plots_2017_2j_ZpT_160_240/Pickles.pkl')
+    #h2016_nj = readFromPickles('plots_2016_nj_ZpT_160_240/Pickles.pkl')
+    #h2017_1j = readFromPickles('plots_2017_1j_ZpT_160_240/Pickles.pkl')
+    #h2017_2j = readFromPickles('plots_2017_2j_ZpT_160_240/Pickles.pkl')
 
+    pickledCoffea = readFromPickles('plots_CoffeaHist/Pickles.pkl')
+    print(pickledCoffea)
 
     plot(h2016_nj,h2017_1j,h2017_2j)
