@@ -138,12 +138,16 @@ def plot(histograms, outdir, fromPickles=False):
     for observable, histogram in histograms.items():
         #print (observable, histogram, type(histogram))
         if type(histogram) is hist.hist_tools.Hist:
-            print(observable, "I am a Hist")
+            print(observable, "I am a Hist", histogram)
         else:
             continue
         plt.gcf().clf()
         #hist.plot1d(histogram, overlay='dataset', fill_opts={'edgecolor': (0,0,0,0.3), 'alpha': 0.8}, line_opts={})
         hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
+        #hproj = histogram["2016_DYnJ"]
+        #hproj = histogram["2017_DY1J"]
+        #hproj = histogram["2017_DY2J"]
+        #hist.plot1d(hproj, line_opts={}, overflow='none')
         plt.gca().autoscale()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
