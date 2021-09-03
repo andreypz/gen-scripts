@@ -120,8 +120,8 @@ def analyze(lhe_file):
         histograms['wei'].fill(wei/abs(wei), weight=1)
         
         
-        if vpt<160 or vpt>240: continue
-        #if vpt<260 or vpt>390: continue
+        #if vpt<160 or vpt>240: continue
+        if vpt<260 or vpt>390: continue
         if vmass<60 or vmass>120: continue
         if njet15<2: continue
 

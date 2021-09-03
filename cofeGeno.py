@@ -8,6 +8,7 @@ from coffea import hist
 import coffea.processor as processor
 import awkward as ak
 from coffea.nanoevents import NanoEventsFactory
+from functools import partial
 
 from Coffea_NanoGEN_schema import NanoGENSchema
 
@@ -46,8 +47,9 @@ class Processor(processor.ProcessorABC):
         self._accumulator = processor.dict_accumulator( 
             {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable!="dataset"}
         )
-        self._accumulator['cutflow'] = processor.defaultdict_accumulator(int)
-        
+        self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
+        self._accumulator["sumw"] =  processor.defaultdict_accumulator( float ) 
+     
     
     @property
     def accumulator(self):
@@ -62,10 +64,9 @@ class Processor(processor.ProcessorABC):
         #print(LHE_Vpt)
         # We can define a new key for cutflow (in this case 'all events'). 
         # Then we can put values into it. We need += because it's per-chunk (demonstrated below)
-        output['cutflow']['all events'] += ak.size(LHE_Vpt)
-        output['cutflow']['number of chunks'] += 1
+        output['cutflow'][dataset]['all_events'] += ak.size(LHE_Vpt)
+        output['cutflow'][dataset]['number_of_chunks'] += 1
         
-
         particles = events.LHEPart
 
         leptons = particles[ (np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) | (np.abs(particles.pdgId) == 15) ]
@@ -75,6 +76,9 @@ class Processor(processor.ProcessorABC):
 
         weight_nosel = events.genWeight
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
+
+        output["sumw"][dataset] += np.sum(weight_nosel)
+        print(weight_nosel)
 
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
         
@@ -97,7 +101,7 @@ class Processor(processor.ProcessorABC):
         full_selection = two_lep & two_jets & vpt_cut & vmass_cut
 
         selected_events = events[full_selection]
-        output['cutflow']['seleced_events'] += len(selected_events)
+        output['cutflow'][dataset]["selected_events"] += len(selected_events)
 
         j_2l2j = jets15[full_selection]
         dijet = j_2l2j[:, 0] + j_2l2j[:, 1]    
@@ -142,12 +146,7 @@ def plot(histograms, outdir, fromPickles=False):
         else:
             continue
         plt.gcf().clf()
-        #hist.plot1d(histogram, overlay='dataset', fill_opts={'edgecolor': (0,0,0,0.3), 'alpha': 0.8}, line_opts={})
         hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
-        #hproj = histogram["2016_DYnJ"]
-        #hproj = histogram["2017_DY1J"]
-        #hproj = histogram["2017_DY2J"]
-        #hist.plot1d(hproj, line_opts={}, overflow='none')
         plt.gca().autoscale()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
@@ -175,8 +174,8 @@ if __name__ == "__main__":
     import time
     
     #client = Client("tls://localhost:8786")
-    ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/NanoGEN/"
-    #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
+    #ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/NanoGEN/"
+    ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
     p2016_DYn_LHE_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Summer15/FromGridPack-12Aug2021/210812_100639/0000/"
     p2017_DY1_LHE_250_400 = ntuples_location + "/DY1JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100210/0000/"
     p2017_DY2_LHE_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000/"
@@ -206,6 +205,10 @@ if __name__ == "__main__":
     
     
         for key, value in output['cutflow'].items():
+            print(key, value)
+            for key2, value2 in output['cutflow'][key].items():
+                print(key, key2,value2)
+        for key, value in output['sumw'].items():
             print(key, value)
 
         

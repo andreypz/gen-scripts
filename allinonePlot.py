@@ -18,7 +18,7 @@ lumi = 1 #fb
 scales_150_250 = {
     "2016_nj":
     {
-        "xs": 222.9,
+        "xs": 100, #230 <-- there is a problem with normalization
         "fneg": 0.31,
         "Nev": 100000,
     },
@@ -54,13 +54,32 @@ scales_250_400 = {
         "xs": 5.655,
         "fneg": 0.37,
         "Nev": 100000,
-    },
+     },
 }
 
-scales = scales_250_400
+nanogen_scales_250_400 = {
+    "2016_nj":
+    {
+        "xs": 2.848,
+        "fneg": 0.33,
+        "Nev": 85600,
+    },
+    "2017_1j": 
+    {
+        "xs": 1.27,
+        "fneg": 0.14,
+        "Nev": 30000,
+    },
+    "2017_2j":
+    {
+        "xs": 2.958,
+        "fneg": 0.34,
+        "Nev": 67100,
+     },
+}
 
 
-def plotAll(inputType, hAll, h2016_nj=None, h2017_1j=None, h2017_2j=None):
+def plotAll(inputType, scales, hAll, h2016_nj=None, h2017_1j=None, h2017_2j=None):
 
     if inputType==0:
         observables = h2016_nj.keys()
@@ -69,16 +88,16 @@ def plotAll(inputType, hAll, h2016_nj=None, h2017_1j=None, h2017_2j=None):
 
     for obs in observables:
         print(obs)
-        if obs in ['wei','lep_eta','z_mass','jet_pt','dijet_pt','nlep','njet','njet15','cutflow']: continue 
+        if obs in ['wei','lep_eta','z_mass','jet_pt','dijet_pt','nlep','njet','njet15','cutflow','sumw']: continue 
         if inputType==0:
             h1 = h2016_nj[obs]
             h2 = h2017_1j[obs]
             h3 = h2017_2j[obs]
-            plotType0(obs, h1,h2,h3)
+            plotType0(obs, h1,h2,h3, scales)
         elif inputType==1:
-            plotType1(obs, hAll[obs])
+            plotType1(obs, hAll[obs], scales)
         
-def plotType0(obs, h2016_nj,h2017_1j,h2017_2j):
+def plotType0(obs, h2016_nj,h2017_1j,h2017_2j, scales):
     outdir = opt.outdir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
@@ -100,9 +119,9 @@ def plotType0(obs, h2016_nj,h2017_1j,h2017_2j):
     h_2017_nj =  h_2017_1j +  h_2017_2j
     plt.gcf().clf()
     
-    h_2017_nj.plot_ratio(h_2016_nj,     
-                         rp_num_label="2017 1+2j",
-                         rp_denom_label="2016 1+2j",     
+    h_2016_nj.plot_ratio(h_2017_nj,     
+                         rp_num_label="2016 1+2j",
+                         rp_denom_label="2017 1+2j",     
                          rp_uncert_draw_type="line",
                          rp_uncertainty_type="poisson",
                          rp_ylim=[0.2, 2.2],
@@ -111,7 +130,7 @@ def plotType0(obs, h2016_nj,h2017_1j,h2017_2j):
     plt.gcf().savefig(f"{outdir}_scaled/{obs}.png")
 
 
-def plotType1(obs, hAll):
+def plotType1(obs, hAll, scales):
 
     outdir = opt.outdir
     if not os.path.exists(outdir):
@@ -138,13 +157,8 @@ def plotType1(obs, hAll):
                         "2017 1+2j": ["2017_DY1J", "2017_DY2J"]})
     print(hNew)
 
-    fig, (ax, rax) = plt.subplots(
-        nrows=2,
-        ncols=1,
-        figsize=(7,7),
-        gridspec_kw={"height_ratios": (3, 1)},
-        sharex=True
-    )
+    fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7), 
+                                  gridspec_kw={"height_ratios": (3, 1)},sharex=True)
     fig.subplots_adjust(hspace=.07)
     
 
@@ -177,14 +191,20 @@ if __name__ == "__main__":
     print("This is the __main__ part")
     
     if opt.inputType==0:
-        #h2016_nj = readFromPickles('plots_2016_nj_ZpT_260to390/Pickles.pkl')
-        #h2017_1j = readFromPickles('plots_2017_1j_ZpT_260to390/Pickles.pkl')
-        #h2017_2j = readFromPickles('plots_2017_2j_ZpT_260to390/Pickles.pkl')
+
+        scales = scales_150_250
         h2016_nj = readFromPickles('plots_2016_nj_ZpT_160_240/Pickles.pkl')
         h2017_1j = readFromPickles('plots_2017_1j_ZpT_160_240/Pickles.pkl')
         h2017_2j = readFromPickles('plots_2017_2j_ZpT_160_240/Pickles.pkl')
-        plotAll(opt.inputType, None, h2016_nj, h2017_1j, h2017_2j)
+        #scales = scales_250_400
+        #h2016_nj = readFromPickles('plots_2016_nj_ZpT_260_390/Pickles.pkl')
+        #h2017_1j = readFromPickles('plots_2017_1j_ZpT_260_390/Pickles.pkl')
+        #h2017_2j = readFromPickles('plots_2017_2j_ZpT_260_390/Pickles.pkl')
+        
+        plotAll(opt.inputType, scales, None, h2016_nj, h2017_1j, h2017_2j)
         
     elif opt.inputType==1:
-        pickledCoffea = readFromPickles('plots_CoffeaHist/Pickles.pkl')
-        plotAll(opt.inputType, pickledCoffea)
+        scales = nanogen_scales_250_400
+        #pickledCoffea = readFromPickles('plots_CoffeaHist/Pickles.pkl')
+        pickledCoffea = readFromPickles('plots_Cofiano_260_390/Pickles.pkl')
+        plotAll(opt.inputType, scales, pickledCoffea)
