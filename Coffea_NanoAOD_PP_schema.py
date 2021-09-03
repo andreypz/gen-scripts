@@ -3,7 +3,7 @@ from coffea.nanoevents import transforms
 from coffea.nanoevents.schemas.base import BaseSchema, zip_forms
 
 
-class NanoGENSchema(BaseSchema):
+class NanoAODPPSchema(BaseSchema):
     """NanoAOD schema builder
 
     The NanoAOD schema is built from all branches found in the supplied file, based on
@@ -18,7 +18,7 @@ class NanoGENSchema(BaseSchema):
 
     - one branch exists named ``name`` and no branches start with ``name_``, interpreted as a single flat array;
     - one branch exists named ``name``, one named ``n{name}``, and no branches start with ``name_``, interpreted as a single jagged array;
-    - no branch exists named ``n{name}`` and many branches start with ``name_*``, interpreted as a flat table; or
+    - no branch exists named ``{name}`` and many branches start with ``name_*``, interpreted as a flat table; or
     - one branch exists named ``n{name}`` and many branches start with ``name_*``, interpreted as a jagged table.
 
     Collections are assigned mixin types according to the `mixins` mapping.
@@ -32,68 +32,68 @@ class NanoGENSchema(BaseSchema):
     warn_missing_crossrefs = True
 
     mixins = {
-        #"CaloMET": "MissingET",
-        #"ChsMET": "MissingET",
-        #"GenMET": "MissingET",
-        #"MET": "MissingET",
-        #"METFixEE2017": "MissingET",
-        #"PuppiMET": "MissingET",
-        #"RawMET": "MissingET",
-        #"RawPuppiMET": "MissingET",
-        #"TkMET": "MissingET",
+        "CaloMET": "MissingET",
+        "ChsMET": "MissingET",
+        "GenMET": "MissingET",
+        "MET": "MissingET",
+        "METFixEE2017": "MissingET",
+        "PuppiMET": "MissingET",
+        "RawMET": "MissingET",
+        "RawPuppiMET": "MissingET",
+        "TkMET": "MissingET",
         # pseudo-lorentz: pt, eta, phi, mass=0
-        #"IsoTrack": "PtEtaPhiMCollection",
-        #"SoftActivityJet": "PtEtaPhiMCollection",
-        #"TrigObj": "PtEtaPhiMCollection",
+        "IsoTrack": "PtEtaPhiMCollection",
+        "SoftActivityJet": "PtEtaPhiMCollection",
+        "TrigObj": "PtEtaPhiMCollection",
         # True lorentz: pt, eta, phi, mass
-        #"FatJet": "FatJet",
+        "FatJet": "FatJet",
         "GenDressedLepton": "PtEtaPhiMCollection",
         "GenIsolatedPhoton": "PtEtaPhiMCollection",
         "GenJet": "PtEtaPhiMCollection",
         "GenJetAK8": "PtEtaPhiMCollection",
-        #"Jet": "Jet",
+        "Jet": "Jet",
         "LHEPart": "PtEtaPhiMCollection",
         "SubGenJetAK8": "PtEtaPhiMCollection",
-        #"SubJet": "PtEtaPhiMCollection",
+        "SubJet": "PtEtaPhiMCollection",
         # Candidate: lorentz + charge
-        #"Electron": "Electron",
-        #"Muon": "Muon",
-        #"Photon": "Photon",
-        #"FsrPhoton": "FsrPhoton",
-        #"Tau": "Tau",
+        "Electron": "Electron",
+        "Muon": "Muon",
+        "Photon": "Photon",
+        "FsrPhoton": "FsrPhoton",
+        "Tau": "Tau",
         "GenVisTau": "GenVisTau",
         # special
         "GenPart": "GenParticle",
-        #"PV": "Vertex",
-        #"SV": "SecondaryVertex",
+        "PV": "Vertex",
+        "SV": "SecondaryVertex",
     }
     """Default configuration for mixin types, based on the collection name.
 
     The types are implemented in the `coffea.nanoevents.methods.nanoaod` module.
     """
     all_cross_references = {
-        #"Electron_genPartIdx": "GenPart",
-        #"Electron_jetIdx": "Jet",
-        #"Electron_photonIdx": "Photon",
-        #"FatJet_genJetAK8Idx": "GenJetAK8",
-        #"FatJet_subJetIdx1": "SubJet",
-        #"FatJet_subJetIdx2": "SubJet",
-        #"FsrPhoton_muonIdx": "Muon",
+        "Electron_genPartIdx": "GenPart",
+        "Electron_jetIdx": "Jet",
+        "Electron_photonIdx": "Photon",
+        "FatJet_genJetAK8Idx": "GenJetAK8",
+        "FatJet_subJetIdx1": "SubJet",
+        "FatJet_subJetIdx2": "SubJet",
+        "FsrPhoton_muonIdx": "Muon",
         "GenPart_genPartIdxMother": "GenPart",
         "GenVisTau_genPartIdxMother": "GenPart",
-        #"Jet_electronIdx1": "Electron",
-        #"Jet_electronIdx2": "Electron",
-        #"Jet_genJetIdx": "GenJet",
-        #"Jet_muonIdx1": "Muon",
-        #"Jet_muonIdx2": "Muon",
-        #"Muon_fsrPhotonIdx": "FsrPhoton",
-        #"Muon_genPartIdx": "GenPart",
-        #"Muon_jetIdx": "Jet",
-        #"Photon_electronIdx": "Electron",
-        #"Photon_genPartIdx": "GenPart",
-        #"Photon_jetIdx": "Jet",
-        #"Tau_genPartIdx": "GenPart",
-        #"Tau_jetIdx": "Jet",
+        "Jet_electronIdx1": "Electron",
+        "Jet_electronIdx2": "Electron",
+        "Jet_genJetIdx": "GenJet",
+        "Jet_muonIdx1": "Muon",
+        "Jet_muonIdx2": "Muon",
+        "Muon_fsrPhotonIdx": "FsrPhoton",
+        "Muon_genPartIdx": "GenPart",
+        "Muon_jetIdx": "Jet",
+        "Photon_electronIdx": "Electron",
+        "Photon_genPartIdx": "GenPart",
+        "Photon_jetIdx": "Jet",
+        "Tau_genPartIdx": "GenPart",
+        "Tau_jetIdx": "Jet",
     }
     """Cross-references, where an index is to be interpreted with respect to another collection
 
@@ -101,16 +101,16 @@ class NanoGENSchema(BaseSchema):
     can still resolve the indirection back the parent events
     """
     nested_items = {
-        #"FatJet_subJetIdxG": ["FatJet_subJetIdx1G", "FatJet_subJetIdx2G"],
-        #"Jet_muonIdxG": ["Jet_muonIdx1G", "Jet_muonIdx2G"],
-        #"Jet_electronIdxG": ["Jet_electronIdx1G", "Jet_electronIdx2G"],
+        "FatJet_subJetIdxG": ["FatJet_subJetIdx1G", "FatJet_subJetIdx2G"],
+        "Jet_muonIdxG": ["Jet_muonIdx1G", "Jet_muonIdx2G"],
+        "Jet_electronIdxG": ["Jet_electronIdx1G", "Jet_electronIdx2G"],
     }
     """Nested collections, where nesting is accomplished by a fixed-length set of indexers"""
     nested_index_items = {
-        #"Jet_pFCandsIdxG": ("Jet_nConstituents", "JetPFCands"),
-        #"FatJet_pFCandsIdxG": ("FatJet_nConstituents", "FatJetPFCands"),
-        #"GenJet_pFCandsIdxG": ("GenJet_nConstituents", "GenJetCands"),
-        #"GenFatJet_pFCandsIdxG": ("GenJetAK8_nConstituents", "GenFatJetCands"),
+        "Jet_pFCandsIdxG": ("Jet_nConstituents", "JetPFCands"),
+        "FatJet_pFCandsIdxG": ("FatJet_nConstituents", "FatJetPFCands"),
+        "GenJet_pFCandsIdxG": ("GenJet_nConstituents", "GenJetCands"),
+        "GenFatJet_pFCandsIdxG": ("GenJetAK8_nConstituents", "GenFatJetCands"),
     }
     """Nested collections, where nesting is accomplished by assuming the target can be unflattened according to a source counts"""
     special_items = {
@@ -265,11 +265,11 @@ class NanoGENSchema(BaseSchema):
                     name,
                     record_name=mixin,
                 )
-                #print(name)
                 if "parameters" in output[name]:
                     output[name]["parameters"].update({"collection_name": name})
                 else:
                      output[name]["parameters"] = {"collection_name": name}
+
         return output
 
     @property
