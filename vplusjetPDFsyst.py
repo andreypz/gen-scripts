@@ -25,31 +25,35 @@ def getRootFiles(d, lim=None):
     
     #print(rootfiles)
     return rootfiles
+
+def isClean(obj_A, obj_B, drmin=0.4):
+    # From: https://github.com/oshadura/topcoffea/blob/master/topcoffea/modules/objects.py
+    objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
+    mask = ak.fill_none(objB_DR > drmin, True)
+    return (mask)
+
 class Processor(processor.ProcessorABC):
     def __init__(self):
         
-        axis = { "dataset": hist.Cat("dataset", ""),
-                 "PDFwei": hist.Cat("PDFwei", ""),
+        axis = { "dataset": hist.Cat("dataset", "dataset"),
+                 "PDFwei": hist.Cat("PDFwei", "PDF name"),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "V PT [GeV]", 100, 0, 600),                 
                  'wei'        : hist.Bin("wei", "wei", 50, -10, 10), 
                  'nlep'       : hist.Bin("nlep", "nlep", 12, 0, 6), 
-                 #'lep_eta'    : hist.Bin("lep_eta", "lep_eta", 50, -5, 5), 
-                 #'lep_pt'     : hist.Bin("lep_pt", "lep_pt", 50, 0, 500), 
                  'dilep_m'    : hist.Bin("dilep_m", "dilep_m", 50, 50, 120), 
                  'dilep_pt'   : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600), 
                  'njet15'     : hist.Bin("njet15", "njet15", 12, 0, 6), 
-                 #'jet_eta'    : hist.Bin("jet_eta", "jet_eta", 50, -5, 5), 
-                 #'jet_pt'     : hist.Bin("jet_pt", "jet_pt", 50, 0, 500), 
                  'dijet_dr'   : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5), 
                  'dijet_m'    : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200), 
                  'dijet_pt'   : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600)
              }
         
         self._accumulator = processor.dict_accumulator( 
-            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable!="dataset" and observable!="PDFwei"}
+            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable not in ["dataset", "PDFwei", "dilep_pt"]}
         )
+        self._accumulator['dilep_pt'] = hist.Hist("Counts", axis["dataset"], axis["PDFwei"], axis["dilep_pt"])
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
-        self._accumulator["sumw"] =  processor.defaultdict_accumulator( float ) 
+        self._accumulator['sumw'] =  processor.defaultdict_accumulator( float ) 
      
     
     @property
@@ -62,6 +66,9 @@ class Processor(processor.ProcessorABC):
 
         dataset = events.metadata["dataset"]
 
+        print("PDF LHE weights:", len(events.LHEPdfWeight), events.LHEPdfWeight)
+        print(ak.num(events.LHEPdfWeight))
+
         LHE_Vpt = events.LHE['Vpt']
         output['cutflow'][dataset]['all_events'] += ak.size(LHE_Vpt)
         output['cutflow'][dataset]['number_of_chunks'] += 1
@@ -69,11 +76,11 @@ class Processor(processor.ProcessorABC):
         #print(LHE_Vpt)
 
         weight_nosel = events.genWeight
-        output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
-
         output["sumw"][dataset] += np.sum(weight_nosel)
         #print(weight_nosel)
 
+        output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
+        
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
         
         muons = events.Muon        
@@ -82,7 +89,9 @@ class Processor(processor.ProcessorABC):
             (muons.pt > 15)
             & (abs(muons.eta) < 2.4)
             & (muons.pfRelIso04_all < 0.25)
-            & muons.looseId
+            & (muons.looseId)
+            & (np.abs(muons.dxy) < 0.05)
+            & (np.abs(muons.dz) < 0.1)
         )
         nmuons = ak.sum(goodmuon, axis=1)
 
@@ -99,9 +108,15 @@ class Processor(processor.ProcessorABC):
 
 
         electrons = events.Electron
+        abs_eta = np.abs(electrons.eta)
         goodelectron = (
             (electrons.pt > 15)
-            & (abs(electrons.eta) < 2.5)
+            & (abs_eta < 2.5)
+            & (abs(electrons.dxy) < 0.05) 
+            & (abs(electrons.dz) < 0.1) 
+            & (electrons.lostHits < 2)
+            & (electrons.miniPFRelIso_all < 0.4)
+            & (((electrons.mvaFall17V2noIso > 0) & (abs_eta < 1.479)) | ((electrons.mvaFall17V2noIso > 0.7) & (abs_eta > 1.479) & (abs_eta < 2.5)))
         )   
         electrons = electrons[goodelectron]
 
@@ -115,9 +130,6 @@ class Processor(processor.ProcessorABC):
         print(good_dimuons[two_lep])
         print(vmass[two_lep])
         
-        print(events.LHEPdfWeight)
-        print(ak.num(events.LHEPdfWeight))
-
         MET = events.MET.pt
 
         jets = events.Jet
@@ -127,16 +139,11 @@ class Processor(processor.ProcessorABC):
             & jets.isTight
         ]
 
-        #jet_muon_pairs = ak.cartesian({'jets': jets, 'muons': muons}, nested=True)
-        #jet_electron_pairs = ak.cartesian({'jets': jets, 'electrons': electrons}, nested=True)
+        jets['isClean'] = isClean(jets, electrons, drmin=0.4)& isClean(jets, muons, drmin=0.4)
+        j_isclean = isClean(jets, electrons, drmin=0.4)& isClean(jets, muons, drmin=0.4)
 
-        #good_jm_pairs = jets.nearest(muons).delta_r(jets) > 0.4
-        #good_je_pairs = jets.nearest(electrons).delta_r(jets) > 0.4
-        #good_jl_pairs = good_jm_pairs & good_je_pairs
-
-        #print(good_jl_pairs)
-        #good_jets = jets[good_jl_pairs]
-        good_jets = jets
+        #good_jets = jets
+        good_jets = jets[j_isclean]
         
 
         output['njet15'].fill(dataset=dataset, njet15=ak.num(good_jets))
@@ -171,19 +178,16 @@ class Processor(processor.ProcessorABC):
         #weight = np.ones(len(selected_events))
 
         output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[full_selection]), weight=weight)
-        output['dilep_pt'].fill(dataset=dataset, dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
+        output['dilep_pt'].fill(dataset=dataset,  PDFwei="Default", dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
         
-        
-        #output['lep_eta'].fill(dataset=dataset, lep_eta=ak.flatten(leptons.eta[full_selection]))
-        #output['lep_pt'].fill(dataset=dataset, lep_pt=ak.flatten(leptons.pt[full_selection]))
-        
-        #output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(jets15.eta[full_selection]))
-        #output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(jets15.pt[full_selection]))
         
         output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
         output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
         output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
 
+        for p in range(0,32):
+            PdfWei = 2*selected_events.LHEPdfWeight[:,p]
+            output['dilep_pt'].fill(dataset=dataset, PDFwei=str(p), dilep_pt=ak.flatten(vpt[full_selection]), weight=weight*PdfWei)
 
         return output
 
@@ -204,7 +208,10 @@ def plot(histograms, outdir, fromPickles=False):
         else:
             continue
         plt.gcf().clf()
-        hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
+        if observable=="dilep_pt":
+            hist.plotgrid(histogram, overlay='PDFwei', col='dataset', line_opts={})
+        else:
+            hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
         plt.gca().autoscale()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
@@ -245,7 +252,7 @@ if __name__ == "__main__":
     file_list = {
         '2017_DY1J' :  getRootFiles(p2017_DY1_250_400),
         '2017_DY2J' :  getRootFiles(p2017_DY2_250_400),
-        #'2017_DY2J' :  [p2017_DY2_250_400+"/470F9AB8-2D2B-AC47-832C-14D4EBF9DAD6.root"],
+        #'2017_D12J' :  [p2017_DY1_250_400+"/B9101D62-5158-7649-8121-E3E3645EBA8A.root"],
         #'2017_DY2J' :  [p2017_DY2_250_400+"/18A3F63D-3CD9-2449-AC01-D14789684D8D.root"],
     }
     # print(file_list)
