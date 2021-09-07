@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-
 from os import listdir, makedirs, path, system
 import numpy as np
 import pickle as pkl
@@ -23,29 +22,31 @@ def getRootFiles(d, lim=None):
         rootfiles = [siteIP+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
     else:
         rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
-    # print(rootfiles)
+    
+    #print(rootfiles)
     return rootfiles
 class Processor(processor.ProcessorABC):
     def __init__(self):
         
         axis = { "dataset": hist.Cat("dataset", ""),
+                 "PDFwei": hist.Cat("PDFwei", ""),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "V PT [GeV]", 100, 0, 600),                 
                  'wei'        : hist.Bin("wei", "wei", 50, -10, 10), 
                  'nlep'       : hist.Bin("nlep", "nlep", 12, 0, 6), 
-                 'lep_eta'    : hist.Bin("lep_eta", "lep_eta", 50, -5, 5), 
-                 'lep_pt'     : hist.Bin("lep_pt", "lep_pt", 50, 0, 500), 
+                 #'lep_eta'    : hist.Bin("lep_eta", "lep_eta", 50, -5, 5), 
+                 #'lep_pt'     : hist.Bin("lep_pt", "lep_pt", 50, 0, 500), 
                  'dilep_m'    : hist.Bin("dilep_m", "dilep_m", 50, 50, 120), 
                  'dilep_pt'   : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600), 
                  'njet15'     : hist.Bin("njet15", "njet15", 12, 0, 6), 
-                 'jet_eta'    : hist.Bin("jet_eta", "jet_eta", 50, -5, 5), 
-                 'jet_pt'     : hist.Bin("jet_pt", "jet_pt", 50, 0, 500), 
+                 #'jet_eta'    : hist.Bin("jet_eta", "jet_eta", 50, -5, 5), 
+                 #'jet_pt'     : hist.Bin("jet_pt", "jet_pt", 50, 0, 500), 
                  'dijet_dr'   : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5), 
                  'dijet_m'    : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200), 
                  'dijet_pt'   : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600)
              }
         
         self._accumulator = processor.dict_accumulator( 
-            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable!="dataset"}
+            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable!="dataset" and observable!="PDFwei"}
         )
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
         self._accumulator["sumw"] =  processor.defaultdict_accumulator( float ) 
@@ -62,72 +63,126 @@ class Processor(processor.ProcessorABC):
         dataset = events.metadata["dataset"]
 
         LHE_Vpt = events.LHE['Vpt']
-        #print(LHE_Vpt)
-        particles = events.LHEPart
-
-        # We can define a new key for cutflow (in this case 'all events'). 
-        # Then we can put values into it. We need += because it's per-chunk (demonstrated below)
         output['cutflow'][dataset]['all_events'] += ak.size(LHE_Vpt)
         output['cutflow'][dataset]['number_of_chunks'] += 1
-        
 
-        leptons = particles[ (np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) | (np.abs(particles.pdgId) == 15) ]
-        jets15  = particles[ ( (np.abs(particles.pdgId) == 1) | (np.abs(particles.pdgId) == 2) | (np.abs(particles.pdgId) == 3 ) |
-                               (np.abs(particles.pdgId) == 4) | (np.abs(particles.pdgId) == 5) | (np.abs(particles.pdgId) == 21 ) ) &
-                             (particles.status==1) & (particles.pt > 15) ]
+        #print(LHE_Vpt)
 
         weight_nosel = events.genWeight
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
 
         output["sumw"][dataset] += np.sum(weight_nosel)
-        print(weight_nosel)
+        #print(weight_nosel)
 
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
         
-        LL_events = events[ak.num(leptons) == 2]
-        JJ_events = events[ak.num(jets15) >= 2]
+        muons = events.Muon        
 
-        output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons))
-        output['njet15'].fill(dataset=dataset, njet15=ak.num(jets15))
+        goodmuon = (
+            (muons.pt > 15)
+            & (abs(muons.eta) < 2.4)
+            & (muons.pfRelIso04_all < 0.25)
+            & muons.looseId
+        )
+        nmuons = ak.sum(goodmuon, axis=1)
 
-        two_lep = ak.num(leptons) == 2
-        zLL = leptons[two_lep][:, 0] + leptons[two_lep][:, 1]
-        vpt = zLL.pt
-        vmass = zLL.mass
+        lead_muon_pt = ak.firsts(muons[goodmuon]).pt > 20
+
+        muons = muons[goodmuon]
+
+        dimuons = ak.combinations(muons, 2, fields=['i0', 'i1'])
+        opposites = (dimuons['i0'].charge != dimuons['i1'].charge)
+
+        limits = ((dimuons['i0'] + dimuons['i1']).mass >= 60) & ((dimuons['i0'] + dimuons['i1']).mass < 120)
+
+        good_dimuons = dimuons[opposites & limits]
+
+
+        electrons = events.Electron
+        goodelectron = (
+            (electrons.pt > 15)
+            & (abs(electrons.eta) < 2.5)
+        )   
+        electrons = electrons[goodelectron]
+
+        vpt = (good_dimuons['i0'] + good_dimuons['i1']).pt
+        vmass = (good_dimuons['i0'] + good_dimuons['i1']).mass
+
+        output['nlep'].fill(dataset=dataset, nlep=nmuons)
+
+        two_lep = ak.num(good_dimuons) == 1
+
+        print(good_dimuons[two_lep])
+        print(vmass[two_lep])
         
-        vpt_cut =  (vpt>=260) & (vpt<=390)
-        vmass_cut = (vmass>=60) & (vmass<=120)
+        print(events.LHEPdfWeight)
+        print(ak.num(events.LHEPdfWeight))
 
-        two_jets = ak.num(jets15) >= 2
-       
-        full_selection = two_lep & two_jets & vpt_cut & vmass_cut
+        MET = events.MET.pt
+
+        jets = events.Jet
+        jets = jets[
+            (jets.pt > 30.)
+            & (abs(jets.eta) < 2.5)
+            & jets.isTight
+        ]
+
+        #jet_muon_pairs = ak.cartesian({'jets': jets, 'muons': muons}, nested=True)
+        #jet_electron_pairs = ak.cartesian({'jets': jets, 'electrons': electrons}, nested=True)
+
+        #good_jm_pairs = jets.nearest(muons).delta_r(jets) > 0.4
+        #good_je_pairs = jets.nearest(electrons).delta_r(jets) > 0.4
+        #good_jl_pairs = good_jm_pairs & good_je_pairs
+
+        #print(good_jl_pairs)
+        #good_jets = jets[good_jl_pairs]
+        good_jets = jets
+        
+
+        output['njet15'].fill(dataset=dataset, njet15=ak.num(good_jets))
+
+        #print("number of good jets:",ak.num(good_jets))
+
+
+        two_jets = (ak.num(good_jets) >= 2) 
+        
+        #vpt_cut =  (vpt>=260) & (vpt<=390)
+        #vmass_cut = (vmass>=60) & (vmass<=120)
+
+        #full_selection = two_lep & two_jets & vpt_cut & vmass_cut
+        full_selection = two_lep & two_jets
+        #full_selection = two_lep
 
         selected_events = events[full_selection]
         output['cutflow'][dataset]["selected_events"] += len(selected_events)
 
-        j_2l2j = jets15[full_selection]
+        j_2l2j = good_jets[full_selection]
         dijet = j_2l2j[:, 0] + j_2l2j[:, 1]    
 
+        #print("number of good jets full selection:",ak.num(j_2l2j))
+        #print("Dijets:", len(dijet), dijet)
         dijet_pt = dijet.pt
         dijet_m  = dijet.mass
         dijet_dr = j_2l2j[:, 0].delta_r(j_2l2j[:, 1])
+        #print("Dijet mass:", len(dijet_m), dijet_m)
         
-
         weight = selected_events.genWeight
+        #print("weights:", len(weight), weight)
         #weight = np.ones(len(selected_events))
 
-        output['dilep_m'].fill(dataset=dataset, dilep_m=vmass[full_selection], weight=weight)
-        output['dilep_pt'].fill(dataset=dataset, dilep_pt=vpt[full_selection], weight=weight)
+        output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[full_selection]), weight=weight)
+        output['dilep_pt'].fill(dataset=dataset, dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
         
-        output['lep_eta'].fill(dataset=dataset, lep_eta=ak.flatten(leptons.eta[full_selection]))
-        output['lep_pt'].fill(dataset=dataset, lep_pt=ak.flatten(leptons.pt[full_selection]))
         
-        output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(jets15.eta[full_selection]))
-        output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(jets15.pt[full_selection]))
+        #output['lep_eta'].fill(dataset=dataset, lep_eta=ak.flatten(leptons.eta[full_selection]))
+        #output['lep_pt'].fill(dataset=dataset, lep_pt=ak.flatten(leptons.pt[full_selection]))
         
-        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
+        #output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(jets15.eta[full_selection]))
+        #output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(jets15.pt[full_selection]))
+        
         output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
         output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
+        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
 
 
         return output
@@ -181,26 +236,32 @@ if __name__ == "__main__":
     #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
     ntuples_location = "root://dcache-cms-xrootd.desy.de//store/user/andrey/VHccPostProcV15_NanoV7/2017/"
     p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/PostProc_V15_Mar2021_slaurila-_104/210327_221611/0000/"
-    p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-12Aug2021/210812_100403/0000/"
+    p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/PostProc_V15_Mar2021_slaurila-_108/210327_222121/0000/"
+
+    ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/DYCOPY_NanoV7/"
+    p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
+    p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
 
     file_list = {
-        #'2017_DY1J' :  getRootFiles(p2017_DY1_LHE_250_400),
-        #'2017_DY2J' :  getRootFiles(p2017_DY2_LHE_250_400),
-        '2017_DY1J' :  [p2017_DY1_250_400+"/tree_1.root"],
-        #'2017_DY2J' :  [p2017_DY2_LHE_250_400+"/tree_1.root"],
+        '2017_DY1J' :  getRootFiles(p2017_DY1_250_400),
+        '2017_DY2J' :  getRootFiles(p2017_DY2_250_400),
+        #'2017_DY2J' :  [p2017_DY2_250_400+"/470F9AB8-2D2B-AC47-832C-14D4EBF9DAD6.root"],
+        #'2017_DY2J' :  [p2017_DY2_250_400+"/18A3F63D-3CD9-2449-AC01-D14789684D8D.root"],
     }
-    
+    # print(file_list)
+
     if opt.pkl!=None:
         plotFromPickles(opt.pkl, opt.outdir)
     else:
         output = processor.run_uproot_job(file_list,
                                           treename = 'Events',
                                           processor_instance = Processor(),
-                                          executor = processor.iterative_executor,
+                                          #executor = processor.iterative_executor,
                                           #executor_args = {"schema": NanoGENSchema},
-                                          executor_args = {"schema": NanoAODPPSchema},
-                                          #executor = processor.futures_executor,
-                                         # executor_args = {'schema': NanoAODSchema, "workers":8}
+                                          #executor_args = {"schema": NanoAODSchema},
+                                          #executor_args = {"schema": NanoAODPPSchema},
+                                          executor = processor.futures_executor,
+                                          executor_args = {'schema': NanoAODPPSchema, "workers":8}
                                       )
         
         
