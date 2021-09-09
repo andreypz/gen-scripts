@@ -22,7 +22,7 @@ def getRootFiles(d, lim=None):
         rootfiles = [siteIP+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
     else:
         rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
-    
+
     #print(rootfiles)
     return rootfiles
 
@@ -34,38 +34,39 @@ def isClean(obj_A, obj_B, drmin=0.4):
 
 class Processor(processor.ProcessorABC):
     def __init__(self):
-        
+
         axis = { "dataset": hist.Cat("dataset", "dataset"),
                  "PDFwei": hist.Cat("PDFwei", "PDF name"),
-                 "LHE_Vpt": hist.Bin("LHE_Vpt", "V PT [GeV]", 100, 0, 600),                 
-                 'wei'        : hist.Bin("wei", "wei", 50, -10, 10), 
-                 'nlep'       : hist.Bin("nlep", "nlep", 12, 0, 6), 
-                 'dilep_m'    : hist.Bin("dilep_m", "dilep_m", 50, 50, 120), 
-                 'dilep_pt'   : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600), 
-                 'njet15'     : hist.Bin("njet15", "njet15", 12, 0, 6), 
-                 'dijet_dr'   : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5), 
-                 'dijet_m'    : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200), 
+                 "LHE_Vpt": hist.Bin("LHE_Vpt", "V PT [GeV]", 100, 0, 600),
+                 'wei'        : hist.Bin("wei", "wei", 50, -10, 10),
+                 'nlep'       : hist.Bin("nlep", "nlep", 12, 0, 6),
+                 'dilep_m'    : hist.Bin("dilep_m", "dilep_m", 50, 50, 120),
+                 'dilep_pt'   : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600),
+                 'njet15'     : hist.Bin("njet15", "njet15", 12, 0, 6),
+                 'dijet_dr'   : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5),
+                 'dijet_m'    : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200),
                  'dijet_pt'   : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600)
              }
-        
-        self._accumulator = processor.dict_accumulator( 
+
+        self._accumulator = processor.dict_accumulator(
             {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable not in ["dataset", "PDFwei", "dilep_pt"]}
         )
         self._accumulator['dilep_pt'] = hist.Hist("Counts", axis["dataset"], axis["PDFwei"], axis["dilep_pt"])
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
-        self._accumulator['sumw'] =  processor.defaultdict_accumulator( float ) 
-     
-    
+        self._accumulator['sumw'] =  processor.defaultdict_accumulator( float )
+
+
     @property
     def accumulator(self):
         return self._accumulator
-    
+
     def process(self, events):
         output = self.accumulator.identity()
         #print(output)
 
         dataset = events.metadata["dataset"]
 
+        #events["Factor2"] = 
         print("PDF LHE weights:", len(events.LHEPdfWeight), events.LHEPdfWeight)
         print(ak.num(events.LHEPdfWeight))
 
@@ -80,10 +81,10 @@ class Processor(processor.ProcessorABC):
         #print(weight_nosel)
 
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
-        
+
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
-        
-        muons = events.Muon        
+
+        muons = events.Muon
 
         goodmuon = (
             (muons.pt > 15)
@@ -112,12 +113,12 @@ class Processor(processor.ProcessorABC):
         goodelectron = (
             (electrons.pt > 15)
             & (abs_eta < 2.5)
-            & (abs(electrons.dxy) < 0.05) 
-            & (abs(electrons.dz) < 0.1) 
+            & (abs(electrons.dxy) < 0.05)
+            & (abs(electrons.dz) < 0.1)
             & (electrons.lostHits < 2)
             & (electrons.miniPFRelIso_all < 0.4)
             & (((electrons.mvaFall17V2noIso > 0) & (abs_eta < 1.479)) | ((electrons.mvaFall17V2noIso > 0.7) & (abs_eta > 1.479) & (abs_eta < 2.5)))
-        )   
+        )
         electrons = electrons[goodelectron]
 
         vpt = (good_dimuons['i0'] + good_dimuons['i1']).pt
@@ -127,8 +128,8 @@ class Processor(processor.ProcessorABC):
 
         two_lep = ak.num(good_dimuons) == 1
 
-        print(good_dimuons[two_lep])
-        print(vmass[two_lep])
+        #print(good_dimuons[two_lep])
+        #print(vmass[two_lep])
         
         MET = events.MET.pt
 
@@ -144,15 +145,15 @@ class Processor(processor.ProcessorABC):
 
         #good_jets = jets
         good_jets = jets[j_isclean]
-        
+
 
         output['njet15'].fill(dataset=dataset, njet15=ak.num(good_jets))
 
         #print("number of good jets:",ak.num(good_jets))
 
 
-        two_jets = (ak.num(good_jets) >= 2) 
-        
+        two_jets = (ak.num(good_jets) >= 2)
+
         #vpt_cut =  (vpt>=260) & (vpt<=390)
         #vmass_cut = (vmass>=60) & (vmass<=120)
 
@@ -164,7 +165,7 @@ class Processor(processor.ProcessorABC):
         output['cutflow'][dataset]["selected_events"] += len(selected_events)
 
         j_2l2j = good_jets[full_selection]
-        dijet = j_2l2j[:, 0] + j_2l2j[:, 1]    
+        dijet = j_2l2j[:, 0] + j_2l2j[:, 1]
 
         #print("number of good jets full selection:",ak.num(j_2l2j))
         #print("Dijets:", len(dijet), dijet)
@@ -172,21 +173,22 @@ class Processor(processor.ProcessorABC):
         dijet_m  = dijet.mass
         dijet_dr = j_2l2j[:, 0].delta_r(j_2l2j[:, 1])
         #print("Dijet mass:", len(dijet_m), dijet_m)
-        
+
         weight = selected_events.genWeight
         #print("weights:", len(weight), weight)
         #weight = np.ones(len(selected_events))
 
         output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[full_selection]), weight=weight)
         output['dilep_pt'].fill(dataset=dataset,  PDFwei="Default", dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
-        
-        
+
+
         output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
         output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
         output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
 
-        for p in range(0,32):
+        for p in range(0,33):
             PdfWei = 2*selected_events.LHEPdfWeight[:,p]
+            #PdfWei = selected_events.LHEPdfWeight[:,p] # FOR DY 2J 50_150 there is no factor 2
             output['dilep_pt'].fill(dataset=dataset, PDFwei=str(p), dilep_pt=ak.flatten(vpt[full_selection]), weight=weight*PdfWei)
 
         return output
@@ -194,7 +196,52 @@ class Processor(processor.ProcessorABC):
     def postprocess(self, accumulator):
         return accumulator
 
+def _pdfunc(arr):
+    # From https://gist.github.com/hqucms/f71a0223e04452538ee2c8af7cfdf0a1
+    if len(arr) == 33:
+        # PDF4LHC15_nnlo_30_pdfas
+        delta = arr - arr[0]
+        pdfunc = np.sqrt(np.sum(delta[1:31] ** 2))
+        asunc = (arr[32] - arr[31]) / 2
+        return np.sqrt(pdfunc**2 + asunc**2)
+    elif len(arr) == 103:
+        # NNPDF31_nnlo_hessian_pdfas
+        delta = arr - arr[0]
+        pdfunc = np.sqrt(np.sum(delta[1:101] ** 2))
+        asunc = (arr[102] - arr[101]) / 2
+        return np.sqrt(pdfunc**2 + asunc**2)
+    elif len(arr) == 100:
+        # NNPDF30_nlo_as_0118
+        lo, hi = np.percentile(arr, [16, 84])
+        return (hi - lo) / 2
+    elif len(arr) == 101:
+        # NNPDF30_lo_as_0118
+        lo, hi = np.percentile(arr[1:], [16, 84])
+        return (hi - lo) / 2
+    elif len(arr) == 102:
+        # NNPDF30_nlo_nf_5_pdfas
+        lo, hi = np.percentile(arr[:100], [16, 84])
+        pdfunc = (hi - lo) / 2
+        asunc = (arr[101] - arr[100]) / 2
+        return np.sqrt(pdfunc**2 + asunc**2)
+    else:
+        print("array:", arr, "length: ", len(arr))
+        raise NotImplementedError
 
+def printIntegrals(h, obs):
+    ints = h.integrate(obs)
+    print(ints, ints.values())
+    yields = {}
+    for key,v in ints.values().items():
+        # print(key, key[0], key[1], v)
+        sample = key[0]
+        wei_id = key[1]
+        if wei_id == "Default":
+            yields[sample] = []
+        else:
+            yields[sample].append(v)
+    print(yields)
+    return yields
 
 def plot(histograms, outdir, fromPickles=False):
     '''Plots all histograms. No need to change.'''
@@ -210,6 +257,11 @@ def plot(histograms, outdir, fromPickles=False):
         plt.gcf().clf()
         if observable=="dilep_pt":
             hist.plotgrid(histogram, overlay='PDFwei', col='dataset', line_opts={})
+            yi = printIntegrals(histogram, observable)
+            for k,y in yi.items():
+                #print(k,y)
+                pdfunc = _pdfunc(np.array(y))
+                print (k, "Uncertainty: %.1f %%"%(pdfunc/yi[k][0]*100))
         else:
             hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
         plt.gca().autoscale()
@@ -237,23 +289,40 @@ if __name__ == "__main__":
 
     #from dask.distributed import Client
     import time
-    
+
     #client = Client("tls://localhost:8786")
     #ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/NanoGEN/"
     #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
-    ntuples_location = "root://dcache-cms-xrootd.desy.de//store/user/andrey/VHccPostProcV15_NanoV7/2017/"
-    p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/PostProc_V15_Mar2021_slaurila-_104/210327_221611/0000/"
-    p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/PostProc_V15_Mar2021_slaurila-_108/210327_222121/0000/"
 
-    ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/DYCOPY_NanoV7/"
-    p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
-    p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
+    ntuples_location1 = "root://xrootd-cms.infn.it//store/mc/RunIIFall17NanoAODv7/"
+
+    p2017_DY1_50_150 =  ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_50-150_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
+    p2017_DY2_50_150 = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_50-150_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
+
+    p2017_DY1_150_250 = ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/230000/"
+    p2017_DY2_150_250 = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/100000/"
+
+    p2017_DY1_150_250 = ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/230000/"
+    p2017_DY2_150_250 = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/100000/"
+
+    p2017_DY1_400_Inf = ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/130000/"
+    p2017_DY2_400_Inf = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
+
+    ntuples_location2 = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/DYCOPY_NanoV7/"
+    p2017_DY1_250_400 = ntuples_location2 + "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
+    p2017_DY2_250_400 = ntuples_location2+ "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
 
     file_list = {
-        '2017_DY1J' :  getRootFiles(p2017_DY1_250_400),
-        '2017_DY2J' :  getRootFiles(p2017_DY2_250_400),
-        #'2017_D12J' :  [p2017_DY1_250_400+"/B9101D62-5158-7649-8121-E3E3645EBA8A.root"],
-        #'2017_DY2J' :  [p2017_DY2_250_400+"/18A3F63D-3CD9-2449-AC01-D14789684D8D.root"],
+        #'2017_DY1J_250_400' : getRootFiles(p2017_DY1_250_400),
+        #'2017_DY2J_250_400' : getRootFiles(p2017_DY2_250_400),
+        '2017_DY1J_50_150' : [p2017_DY1_50_150+"/22DD7F85-BE97-5E4D-9812-26F1471B7B8F.root"],
+        #'2017_DY2J_50_150' : [p2017_DY2_50_150+"/473E794B-3180-3043-94D9-9CF5F4510C35.root"],
+        '2017_DY1J_150_250' : [p2017_DY1_150_250+"/4222513F-35BA-2A42-AE6F-04B1BC368378.root"],
+        '2017_DY2J_150_250' : [p2017_DY2_150_250+"/048B20FA-ADDE-8442-89E4-5399A019A7F9.root"],
+        '2017_DY1J_250_400' : [p2017_DY1_250_400+"/B9101D62-5158-7649-8121-E3E3645EBA8A.root"],
+        '2017_DY2J_250_400' : [p2017_DY2_250_400+"/18A3F63D-3CD9-2449-AC01-D14789684D8D.root"],
+        '2017_DY1J_400_Inf' : [p2017_DY1_400_Inf + "/6AF6827B-7A67-0745-8CBF-D79CE3B33CEF.root"],
+        '2017_DY2J_400_Inf' : [p2017_DY2_400_Inf + "/00F23B18-1177-7548-BB64-A5642F2D0CA9.root"],
     }
     # print(file_list)
 
@@ -268,20 +337,17 @@ if __name__ == "__main__":
                                           #executor_args = {"schema": NanoAODSchema},
                                           #executor_args = {"schema": NanoAODPPSchema},
                                           executor = processor.futures_executor,
-                                          executor_args = {'schema': NanoAODPPSchema, "workers":8}
+                                          executor_args = {'schema': NanoAODPPSchema, "workers":10}
                                       )
-        
-        
-        
+
+
+
         plot(output, opt.outdir)
-    
-    
+
+
         for key, value in output['cutflow'].items():
             print(key, value)
             for key2, value2 in output['cutflow'][key].items():
                 print(key, key2,value2)
         for key, value in output['sumw'].items():
             print(key, value)
-
-        
-        
