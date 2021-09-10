@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+import uproot
+#uproot.open.defaults["xrootd_handler"] = uproot.MultithreadedXRootDSource
+xrootd_handler=uproot.MultithreadedXRootDSource
+
 from os import listdir, makedirs, path, system
 import numpy as np
 import pickle as pkl
@@ -12,14 +16,28 @@ from Coffea_NanoAOD_PP_schema import NanoAODPPSchema
 
 from functools import partial
 
-def getRootFiles(d, lim=None):
+def getRootFiles(d, xroot, dasgo=True, lim=None):
+    import subprocess
     if "xrootd" in d:
-        import subprocess
         sp = d.split("/")
         siteIP = "/".join(sp[0:3])
         pathToFiles = "/".join(sp[3:-1])
         allfiles = str(subprocess.check_output(["xrdfs", siteIP, "ls", pathToFiles]), 'utf-8').split("\n")
         rootfiles = [siteIP+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
+    elif dasgo:
+        allfiles = str(subprocess.check_output(str('/cvmfs/cms.cern.ch/common/dasgoclient -query="file dataset=%s"'%d), shell=True), 'utf-8').split("\n")
+        rootfiles = [] 
+        for f in allfiles:
+            try:
+                with uproot.open(xroot+f) as up:
+                    #print("Uproot can open file, ", f)
+                    rootfiles.append(xroot+f)
+            except:
+                #print("No, we can't open file, ", f)
+                pass
+            if lim!=None and len(rootfiles)==lim:
+                #print("It's enough files")
+                break
     else:
         rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
 
@@ -65,7 +83,6 @@ class Processor(processor.ProcessorABC):
         #print(output)
 
         dataset = events.metadata["dataset"]
-
         #events["Factor2"] = 
         print("PDF LHE weights:", len(events.LHEPdfWeight), events.LHEPdfWeight)
         print(ak.num(events.LHEPdfWeight))
@@ -187,8 +204,13 @@ class Processor(processor.ProcessorABC):
         output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
 
         for p in range(0,33):
-            PdfWei = 2*selected_events.LHEPdfWeight[:,p]
-            #PdfWei = selected_events.LHEPdfWeight[:,p] # FOR DY 2J 50_150 there is no factor 2
+           
+            if dataset=="2017_DY2J_50_150":
+                # For DY 2J 50_150 there is no factor 2
+                PdfWei = selected_events.LHEPdfWeight[:,p]
+            else:
+                # While other DY samples need it:
+                PdfWei = 2*selected_events.LHEPdfWeight[:,p]
             output['dilep_pt'].fill(dataset=dataset, PDFwei=str(p), dilep_pt=ak.flatten(vpt[full_selection]), weight=weight*PdfWei)
 
         return output
@@ -282,6 +304,7 @@ if __name__ == "__main__":
     #parser.add_argument("inputfile")
     parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
     parser.add_argument('--pkl', type=str, default=None,  help="Make plots from pickled file.")
+    parser.add_argument('-n','--numberOfFiles', type=int, default=1,  help="Number of files to process per sample")
 
     opt = parser.parse_args()
 
@@ -295,36 +318,37 @@ if __name__ == "__main__":
     #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
 
     ntuples_location1 = "root://xrootd-cms.infn.it//store/mc/RunIIFall17NanoAODv7/"
-
-    p2017_DY1_50_150 =  ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_50-150_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
-    p2017_DY2_50_150 = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_50-150_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
-
-    p2017_DY1_150_250 = ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/230000/"
-    p2017_DY2_150_250 = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/100000/"
-
-    p2017_DY1_150_250 = ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/230000/"
-    p2017_DY2_150_250 = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/100000/"
-
-    p2017_DY1_400_Inf = ntuples_location1 + "/DY1JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/130000/"
-    p2017_DY2_400_Inf = ntuples_location1 + "/DY2JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
-
     ntuples_location2 = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/DYCOPY_NanoV7/"
-    p2017_DY1_250_400 = ntuples_location2 + "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
-    p2017_DY2_250_400 = ntuples_location2+ "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/"
 
+    p2017_DY1_50_150 = "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    p2017_DY2_50_150 = "/DY2JetsToLL_M-50_LHEZpT_50-150_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    p2017_DY1_150_250 = "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    p2017_DY2_150_250 = "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+
+    p2017_DY1_150_250 = "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    p2017_DY2_150_250 = "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+
+    p2017_DY1_400_Inf = "/DY1JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    p2017_DY2_400_Inf = "/DY2JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+
+    p2017_DY1_250_400 = "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    p2017_DY2_250_400 = "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
+    
+    xroot = 'root://xrootd-cms.infn.it//'
+    #xroot = 'root://cms-xrd-global.cern.ch//'
     file_list = {
-        #'2017_DY1J_250_400' : getRootFiles(p2017_DY1_250_400),
-        #'2017_DY2J_250_400' : getRootFiles(p2017_DY2_250_400),
-        '2017_DY1J_50_150' : [p2017_DY1_50_150+"/22DD7F85-BE97-5E4D-9812-26F1471B7B8F.root"],
-        #'2017_DY2J_50_150' : [p2017_DY2_50_150+"/473E794B-3180-3043-94D9-9CF5F4510C35.root"],
-        '2017_DY1J_150_250' : [p2017_DY1_150_250+"/4222513F-35BA-2A42-AE6F-04B1BC368378.root"],
-        '2017_DY2J_150_250' : [p2017_DY2_150_250+"/048B20FA-ADDE-8442-89E4-5399A019A7F9.root"],
-        '2017_DY1J_250_400' : [p2017_DY1_250_400+"/B9101D62-5158-7649-8121-E3E3645EBA8A.root"],
-        '2017_DY2J_250_400' : [p2017_DY2_250_400+"/18A3F63D-3CD9-2449-AC01-D14789684D8D.root"],
-        '2017_DY1J_400_Inf' : [p2017_DY1_400_Inf + "/6AF6827B-7A67-0745-8CBF-D79CE3B33CEF.root"],
-        '2017_DY2J_400_Inf' : [p2017_DY2_400_Inf + "/00F23B18-1177-7548-BB64-A5642F2D0CA9.root"],
+        
+        '2017_DY1J_50_150' :  getRootFiles(p2017_DY1_50_150, xroot, lim=opt.numberOfFiles),
+        '2017_DY2J_50_150' :  getRootFiles(p2017_DY2_50_150, xroot, lim=opt.numberOfFiles),
+        '2017_DY1J_150_250' :  getRootFiles(p2017_DY1_150_250, xroot, lim=opt.numberOfFiles),
+        '2017_DY2J_150_250' :  getRootFiles(p2017_DY2_150_250, xroot, lim=opt.numberOfFiles),
+        '2017_DY1J_250_400' :  getRootFiles(p2017_DY1_250_400, xroot, lim=opt.numberOfFiles),
+        #'2017_DY2J_250_400' :  getRootFiles(p2017_DY2_250_400, xroot, lim=opt.numberOfFiles),
+        '2017_DY1J_400_Inf' :  getRootFiles(p2017_DY1_400_Inf, xroot, lim=opt.numberOfFiles),
+        '2017_DY2J_400_Inf' :  getRootFiles(p2017_DY2_400_Inf, xroot, lim=opt.numberOfFiles),
+     
     }
-    # print(file_list)
+    print(file_list)
 
     if opt.pkl!=None:
         plotFromPickles(opt.pkl, opt.outdir)
@@ -337,7 +361,8 @@ if __name__ == "__main__":
                                           #executor_args = {"schema": NanoAODSchema},
                                           #executor_args = {"schema": NanoAODPPSchema},
                                           executor = processor.futures_executor,
-                                          executor_args = {'schema': NanoAODPPSchema, "workers":10}
+                                          executor_args = {'schema': NanoAODSchema, "workers":10},
+                                          maxchunks=opt.numberOfFiles
                                       )
 
 
