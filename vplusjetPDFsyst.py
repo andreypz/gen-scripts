@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import uproot
 #uproot.open.defaults["xrootd_handler"] = uproot.MultithreadedXRootDSource
-xrootd_handler=uproot.MultithreadedXRootDSource
+#xrootd_handler=uproot.MultithreadedXRootDSource
 
 from os import listdir, makedirs, path, system
 import numpy as np
@@ -15,6 +15,7 @@ from Coffea_NanoGEN_schema import NanoGENSchema
 from Coffea_NanoAOD_PP_schema import NanoAODPPSchema
 
 from functools import partial
+import sampleInfo as si
 
 def getRootFiles(d, xroot, dasgo=True, lim=None):
     import subprocess
@@ -54,6 +55,7 @@ class Processor(processor.ProcessorABC):
     def __init__(self):
 
         axis = { "dataset": hist.Cat("dataset", "dataset"),
+                 "channel": hist.Cat("channel", "channel"),
                  "PDFwei": hist.Cat("PDFwei", "PDF name"),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "V PT [GeV]", 100, 0, 600),
                  'wei'        : hist.Bin("wei", "wei", 50, -10, 10),
@@ -67,9 +69,9 @@ class Processor(processor.ProcessorABC):
              }
 
         self._accumulator = processor.dict_accumulator(
-            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable not in ["dataset", "PDFwei", "dilep_pt"]}
+            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable not in ["dataset", "channel", "PDFwei", "dilep_pt"]}
         )
-        self._accumulator['dilep_pt'] = hist.Hist("Counts", axis["dataset"], axis["PDFwei"], axis["dilep_pt"])
+        self._accumulator['dilep_pt'] = hist.Hist("Counts", axis["dataset"], axis["channel"], axis["PDFwei"], axis["dilep_pt"])
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
         self._accumulator['sumw'] =  processor.defaultdict_accumulator( float )
 
@@ -84,8 +86,8 @@ class Processor(processor.ProcessorABC):
 
         dataset = events.metadata["dataset"]
         #events["Factor2"] = 
-        print("PDF LHE weights:", len(events.LHEPdfWeight), events.LHEPdfWeight)
-        print(ak.num(events.LHEPdfWeight))
+        print("dataset:", dataset, "PDF LHE weights:", len(events.LHEPdfWeight), np.mean(events.LHEPdfWeight), events.LHEPdfWeight)
+        print(np.mean(ak.num(events.LHEPdfWeight)), ak.num(events.LHEPdfWeight))
 
         LHE_Vpt = events.LHE['Vpt']
         output['cutflow'][dataset]['all_events'] += ak.size(LHE_Vpt)
@@ -111,19 +113,11 @@ class Processor(processor.ProcessorABC):
             & (np.abs(muons.dxy) < 0.05)
             & (np.abs(muons.dz) < 0.1)
         )
-        nmuons = ak.sum(goodmuon, axis=1)
+        #nmuons = ak.sum(goodmuon, axis=1)
 
-        lead_muon_pt = ak.firsts(muons[goodmuon]).pt > 20
+        #lead_muon_pt = ak.firsts(muons[goodmuon]).pt > 20
 
         muons = muons[goodmuon]
-
-        dimuons = ak.combinations(muons, 2, fields=['i0', 'i1'])
-        opposites = (dimuons['i0'].charge != dimuons['i1'].charge)
-
-        limits = ((dimuons['i0'] + dimuons['i1']).mass >= 60) & ((dimuons['i0'] + dimuons['i1']).mass < 120)
-
-        good_dimuons = dimuons[opposites & limits]
-
 
         electrons = events.Electron
         abs_eta = np.abs(electrons.eta)
@@ -138,14 +132,37 @@ class Processor(processor.ProcessorABC):
         )
         electrons = electrons[goodelectron]
 
-        vpt = (good_dimuons['i0'] + good_dimuons['i1']).pt
-        vmass = (good_dimuons['i0'] + good_dimuons['i1']).mass
+        muons = ak.with_field(muons, 0, 'flavor')
+        electrons = ak.with_field(electrons, 1, 'flavor')
+        
+        leptons = ak.with_name(ak.concatenate([muons, electrons], axis=1), 'PtEtaPhiMCandidate')
+        
+        nlep = ak.num(leptons)
 
-        output['nlep'].fill(dataset=dataset, nlep=nmuons)
+        dileptons = ak.combinations(leptons, 2, fields=['i0', 'i1'])
 
-        two_lep = ak.num(good_dimuons) == 1
 
-        #print(good_dimuons[two_lep])
+        # mu = 0, e = 1, so: mumu = 0, emu = 1, ee = 2.
+        #di_type = (leptons[dileptons['i0']].flavor + leptons[dileptons['i1']].flavor)
+        OS = (dileptons['i0'].charge != dileptons['i1'].charge)
+        SF = (dileptons['i0'].flavor == dileptons['i1'].flavor)
+        #dileptonMask = (ak.num(dileptons) == 1) & dileptons['i0'].flavor==dileptons['i1'].flavor & dileptons['i0'].charge != dileptons['i1'].charge & ak.any((leptons[dileptons['i0']].pt > 25) | (leptons[dileptons['i1']].pt > 25), axis=1) & ( ((dileptons['i0'] + dileptons['i1']).mass - 91.19) < 15) 
+        pt25  = ((dileptons['i0'].pt > 25) | (dileptons['i1'].pt > 25))
+        Zmass = (((dileptons['i0'] + dileptons['i1']).mass - 91.19) < 15)
+        dileptonMask = OS & SF & pt25 & Zmass
+        good_dileptons = dileptons[dileptonMask]
+        
+        #ch_2mu = tight_ll[ak.sum(tight_ll.flavor, axis=1) == 0]
+        #ch_2e = tight_ll[ak.sum(tight_ll.flavor, axis=1) == 2
+
+        vpt = (good_dileptons['i0'] + good_dileptons['i1']).pt
+        vmass = (good_dileptons['i0'] + good_dileptons['i1']).mass
+
+        output['nlep'].fill(dataset=dataset, nlep=nlep)
+
+        two_lep = ak.num(good_dileptons) == 1
+
+        #print(good_dileptons[two_lep])
         #print(vmass[two_lep])
         
         MET = events.MET.pt
@@ -196,22 +213,22 @@ class Processor(processor.ProcessorABC):
         #weight = np.ones(len(selected_events))
 
         output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[full_selection]), weight=weight)
-        output['dilep_pt'].fill(dataset=dataset,  PDFwei="Default", dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
+        output['dilep_pt'].fill(dataset=dataset, channel="2L", PDFwei="Default", dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
 
 
         output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
         output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
         output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
 
-        for p in range(0,33):
-           
-            if dataset=="2017_DY2J_50_150":
-                # For DY 2J 50_150 there is no factor 2
-                PdfWei = selected_events.LHEPdfWeight[:,p]
-            else:
-                # While other DY samples need it:
+        nPDFs = int(np.mean(ak.num(events.LHEPdfWeight)))
+        meanPDF = np.mean(events.LHEPdfWeight)
+        for p in range(0,nPDFs):
+            if abs(0.5-meanPDF)<0.15:
+                # PDF weights are off by a factor 2 
                 PdfWei = 2*selected_events.LHEPdfWeight[:,p]
-            output['dilep_pt'].fill(dataset=dataset, PDFwei=str(p), dilep_pt=ak.flatten(vpt[full_selection]), weight=weight*PdfWei)
+            else:
+                PdfWei = selected_events.LHEPdfWeight[:,p]
+            output['dilep_pt'].fill(dataset=dataset, channel="2L", PDFwei=str(p), dilep_pt=ak.flatten(vpt[full_selection]), weight=weight*PdfWei)
 
         return output
 
@@ -255,13 +272,15 @@ def printIntegrals(h, obs):
     print(ints, ints.values())
     yields = {}
     for key,v in ints.values().items():
-        # print(key, key[0], key[1], v)
+        print(key, key[0], key[1], v)
         sample = key[0]
-        wei_id = key[1]
+        chan  = key[1]
+        wei_id = key[2]
         if wei_id == "Default":
-            yields[sample] = []
+            yields[chan] = {}
+            yields[chan][sample] = []
         else:
-            yields[sample].append(v)
+            yields[chan][sample].append(v)
     print(yields)
     return yields
 
@@ -269,6 +288,9 @@ def plot(histograms, outdir, fromPickles=False):
     '''Plots all histograms. No need to change.'''
     if not path.exists(outdir):
         makedirs(outdir)
+
+    if not fromPickles:
+        pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
 
     for observable, histogram in histograms.items():
         #print (observable, histogram, type(histogram))
@@ -278,19 +300,18 @@ def plot(histograms, outdir, fromPickles=False):
             continue
         plt.gcf().clf()
         if observable=="dilep_pt":
-            hist.plotgrid(histogram, overlay='PDFwei', col='dataset', line_opts={})
+            hist.plotgrid(histogram, overlay='PDFwei', col='dataset', row='channel', line_opts={})
             yi = printIntegrals(histogram, observable)
-            for k,y in yi.items():
-                #print(k,y)
-                pdfunc = _pdfunc(np.array(y))
-                print (k, "Uncertainty: %.1f %%"%(pdfunc/yi[k][0]*100))
+            for ch,y1 in yi.items():
+                for s,y2 in y1.items():
+                    print("Channael:", ch, "sample=", y2)
+                    pdfunc = _pdfunc(np.array(y2))
+                    print (ch, s, "Uncertainty: %.1f %%"%(pdfunc/yi[ch][s][0]*100))
         else:
             hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
         plt.gca().autoscale()
         plt.gcf().savefig(f"{outdir}/{observable}.png")
 
-    if not fromPickles:
-        pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
 
 def plotFromPickles(inputfile, outdir):
     hists = pkl.load(open(inputfile,'rb'))
@@ -310,49 +331,46 @@ if __name__ == "__main__":
 
     print(opt)
 
-    #from dask.distributed import Client
-    import time
-
-    #client = Client("tls://localhost:8786")
-    #ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/NanoGEN/"
-    #ntuples_location = "/net/data_cms/institut_3a/NanoGEN/"
-
-    ntuples_location1 = "root://xrootd-cms.infn.it//store/mc/RunIIFall17NanoAODv7/"
-    ntuples_location2 = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/DYCOPY_NanoV7/"
-
-    p2017_DY1_50_150 = "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    p2017_DY2_50_150 = "/DY2JetsToLL_M-50_LHEZpT_50-150_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    p2017_DY1_150_250 = "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    p2017_DY2_150_250 = "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-
-    p2017_DY1_150_250 = "/DY1JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    p2017_DY2_150_250 = "/DY2JetsToLL_M-50_LHEZpT_150-250_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-
-    p2017_DY1_400_Inf = "/DY1JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    p2017_DY2_400_Inf = "/DY2JetsToLL_M-50_LHEZpT_400-inf_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-
-    p2017_DY1_250_400 = "/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    p2017_DY2_250_400 = "/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM"
-    
-    xroot = 'root://xrootd-cms.infn.it//'
-    #xroot = 'root://cms-xrd-global.cern.ch//'
-    file_list = {
-        
-        '2017_DY1J_50_150' :  getRootFiles(p2017_DY1_50_150, xroot, lim=opt.numberOfFiles),
-        '2017_DY2J_50_150' :  getRootFiles(p2017_DY2_50_150, xroot, lim=opt.numberOfFiles),
-        '2017_DY1J_150_250' :  getRootFiles(p2017_DY1_150_250, xroot, lim=opt.numberOfFiles),
-        '2017_DY2J_150_250' :  getRootFiles(p2017_DY2_150_250, xroot, lim=opt.numberOfFiles),
-        '2017_DY1J_250_400' :  getRootFiles(p2017_DY1_250_400, xroot, lim=opt.numberOfFiles),
-        #'2017_DY2J_250_400' :  getRootFiles(p2017_DY2_250_400, xroot, lim=opt.numberOfFiles),
-        '2017_DY1J_400_Inf' :  getRootFiles(p2017_DY1_400_Inf, xroot, lim=opt.numberOfFiles),
-        '2017_DY2J_400_Inf' :  getRootFiles(p2017_DY2_400_Inf, xroot, lim=opt.numberOfFiles),
-     
-    }
-    print(file_list)
-
     if opt.pkl!=None:
         plotFromPickles(opt.pkl, opt.outdir)
     else:
+
+        import time
+        
+        #xroot = 'root://xrootd-cms.infn.it/'
+        xroot = 'root://cms-xrd-global.cern.ch/'
+        
+        sampleInfo = si.ReadSampleInfoFile('2L_samples_2017_vhcc.txt')
+        
+        file_list_DY = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles) for ds in [
+            #'DY1ToLL_PtZ-50To150',
+            #'DY2ToLL_PtZ-50To150',
+            #'DY1ToLL_PtZ-150To250',
+            #'DY2ToLL_PtZ-150To250',
+            #'DY1ToLL_PtZ-250To400',
+            #'DY2ToLL_PtZ-250To400',
+            #'DY1ToLL_PtZ-400ToInf',
+            #'DY2ToLL_PtZ-400ToInf',
+        ]
+                    }
+        
+        file_list_other = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles) for ds in [
+            #'ZH125ToCC_ZLL_powheg',
+            #'TT_DiLep',
+            #'TT_SingleLep',
+            #'TT_AllHadronic'
+        ]
+                       }
+        
+        file_list_all = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles, checkOpen=True) for ds in sampleInfo.keys()}
+        
+        #file_list = file_list_DY
+        #file_list = file_list_other
+        file_list = file_list_all
+        
+        print(file_list)
+        
+
         output = processor.run_uproot_job(file_list,
                                           treename = 'Events',
                                           processor_instance = Processor(),
@@ -361,8 +379,8 @@ if __name__ == "__main__":
                                           #executor_args = {"schema": NanoAODSchema},
                                           #executor_args = {"schema": NanoAODPPSchema},
                                           executor = processor.futures_executor,
-                                          executor_args = {'schema': NanoAODSchema, "workers":10},
-                                          maxchunks=opt.numberOfFiles
+                                          executor_args = {'schema': NanoAODSchema, "workers":10},# "xrootdtimeout": 10},# "skipbadfiles": True},
+                                          #maxchunks=opt.numberOfFiles
                                       )
 
 
