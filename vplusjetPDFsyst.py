@@ -69,9 +69,9 @@ class Processor(processor.ProcessorABC):
              }
 
         self._accumulator = processor.dict_accumulator(
-            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable not in ["dataset", "channel", "PDFwei", "dilep_pt"]}
+            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable not in ["dataset", "channel", "PDFwei", "dijet_pt"]}
         )
-        self._accumulator['dilep_pt'] = hist.Hist("Counts", axis["dataset"], axis["channel"], axis["PDFwei"], axis["dilep_pt"])
+        self._accumulator['dijet_pt'] = hist.Hist("Counts", axis["dataset"], axis["channel"], axis["PDFwei"], axis["dijet_pt"])
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
         self._accumulator['sumw'] =  processor.defaultdict_accumulator( float )
 
@@ -161,6 +161,8 @@ class Processor(processor.ProcessorABC):
         output['nlep'].fill(dataset=dataset, nlep=nlep)
 
         two_lep = ak.num(good_dileptons) == 1
+        one_lep = ak.num(leptons) == 1
+        zero_lep = ak.num(leptons) == 0
 
         #print(good_dileptons[two_lep])
         #print(vmass[two_lep])
@@ -179,56 +181,64 @@ class Processor(processor.ProcessorABC):
 
         #good_jets = jets
         good_jets = jets[j_isclean]
+        two_jets = (ak.num(good_jets) >= 2)
 
+        #j_2l2j = good_jets[full_selection_2L]
+        #dijet = j_2l2j[:, 0] + j_2l2j[:, 1]
 
         output['njet15'].fill(dataset=dataset, njet15=ak.num(good_jets))
 
         #print("number of good jets:",ak.num(good_jets))
 
 
-        two_jets = (ak.num(good_jets) >= 2)
-
         #vpt_cut =  (vpt>=260) & (vpt<=390)
         #vmass_cut = (vmass>=60) & (vmass<=120)
 
-        #full_selection = two_lep & two_jets & vpt_cut & vmass_cut
-        full_selection = two_lep & two_jets
-        #full_selection = two_lep
+        #full_selection_2L = two_lep & two_jets & vpt_cut & vmass_cut
+        full_selection_2L = two_lep & two_jets
+        full_selection_1L = one_lep & two_jets
+        full_selection_0L = zero_lep & two_jets
+        #full_selection_2L = two_lep
 
-        selected_events = events[full_selection]
-        output['cutflow'][dataset]["selected_events"] += len(selected_events)
+        for ch in ["2L","1L","0L"]:
+            if ch=="2L": selection = full_selection_2L
+            if ch=="1L": selection = full_selection_1L
+            if ch=="0L": selection = full_selection_0L
+            selected_events = events[selection]
+            output['cutflow'][dataset]["selected_events_"+ch] += len(selected_events)
 
-        j_2l2j = good_jets[full_selection]
-        dijet = j_2l2j[:, 0] + j_2l2j[:, 1]
+            dijets = jets[selection]
 
-        #print("number of good jets full selection:",ak.num(j_2l2j))
-        #print("Dijets:", len(dijet), dijet)
-        dijet_pt = dijet.pt
-        dijet_m  = dijet.mass
-        dijet_dr = j_2l2j[:, 0].delta_r(j_2l2j[:, 1])
-        #print("Dijet mass:", len(dijet_m), dijet_m)
+            dijet = dijets[:, 0] + dijets[:, 1]
 
-        weight = selected_events.genWeight
-        #print("weights:", len(weight), weight)
-        #weight = np.ones(len(selected_events))
+            #print("number of good jets full selection:",ak.num(j_2l2j))
+            #print("Dijets:", len(dijet), dijet)
+            dijet_pt = dijet.pt
+            dijet_m  = dijet.mass
+            dijet_dr = dijets[:, 0].delta_r(dijets[:, 1])
+            #print("Dijet mass:", len(dijet_m), dijet_m)
 
-        output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[full_selection]), weight=weight)
-        output['dilep_pt'].fill(dataset=dataset, channel="2L", PDFwei="Default", dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
+            weight = selected_events.genWeight
+            #print("weights:", len(weight), weight)
+            #weight = np.ones(len(selected_events))
 
+            if ch=="2L":
+                output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[selection]), weight=weight)
+                output['dilep_pt'].fill(dataset=dataset, dilep_pt=ak.flatten(vpt[selection]), weight=weight)
 
-        output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
-        output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
-        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
+            output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
+            output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
 
-        nPDFs = int(np.mean(ak.num(events.LHEPdfWeight)))
-        meanPDF = np.mean(events.LHEPdfWeight)
-        for p in range(0,nPDFs):
-            if abs(0.5-meanPDF)<0.15:
-                # PDF weights are off by a factor 2 
-                PdfWei = 2*selected_events.LHEPdfWeight[:,p]
-            else:
-                PdfWei = selected_events.LHEPdfWeight[:,p]
-            output['dilep_pt'].fill(dataset=dataset, channel="2L", PDFwei=str(p), dilep_pt=ak.flatten(vpt[full_selection]), weight=weight*PdfWei)
+            output['dijet_pt'].fill(dataset=dataset, channel=ch, PDFwei="Default", dijet_pt=dijet_pt, weight=weight)
+            nPDFs = int(np.mean(ak.num(events.LHEPdfWeight)))
+            meanPDF = np.mean(events.LHEPdfWeight)
+            for p in range(0,nPDFs):
+                if abs(0.5-meanPDF)<0.15:
+                    # PDF weights are off by a factor 2 
+                    PdfWei = 2*selected_events.LHEPdfWeight[:,p]
+                else:
+                    PdfWei = selected_events.LHEPdfWeight[:,p]
+                output['dijet_pt'].fill(dataset=dataset, channel=ch, PDFwei=str(p), dijet_pt=dijet_pt, weight=weight*PdfWei)
 
         return output
 
@@ -299,7 +309,7 @@ def plot(histograms, outdir, fromPickles=False):
         else:
             continue
         plt.gcf().clf()
-        if observable=="dilep_pt":
+        if observable=="dijet_pt":
             hist.plotgrid(histogram, overlay='PDFwei', col='dataset', row='channel', line_opts={})
             yi = printIntegrals(histogram, observable)
             for ch,y1 in yi.items():
@@ -368,9 +378,9 @@ if __name__ == "__main__":
         #file_list = file_list_other
         file_list = file_list_all
         
+        #file_list = { "p2017_DY2_250_400": ["root://grid-cms-xrootd.physik.rwth-aachen.de//store/user/andrey/DYCOPY_NanoV7/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/100000/470F9AB8-2D2B-AC47-832C-14D4EBF9DAD6.root"]}
         print(file_list)
-        
-
+         
         output = processor.run_uproot_job(file_list,
                                           treename = 'Events',
                                           processor_instance = Processor(),
@@ -379,7 +389,7 @@ if __name__ == "__main__":
                                           #executor_args = {"schema": NanoAODSchema},
                                           #executor_args = {"schema": NanoAODPPSchema},
                                           executor = processor.futures_executor,
-                                          executor_args = {'schema': NanoAODSchema, "workers":10},# "xrootdtimeout": 10},# "skipbadfiles": True},
+                                          executor_args = {'schema': NanoAODSchema, "workers":6},# "xrootdtimeout": 10},# "skipbadfiles": True},
                                           #maxchunks=opt.numberOfFiles
                                       )
 
