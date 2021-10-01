@@ -148,8 +148,9 @@ class Processor(processor.ProcessorABC):
         SF = (dileptons['i0'].flavor == dileptons['i1'].flavor)
         #dileptonMask = (ak.num(dileptons) == 1) & dileptons['i0'].flavor==dileptons['i1'].flavor & dileptons['i0'].charge != dileptons['i1'].charge & ak.any((leptons[dileptons['i0']].pt > 25) | (leptons[dileptons['i1']].pt > 25), axis=1) & ( ((dileptons['i0'] + dileptons['i1']).mass - 91.19) < 15) 
         pt25  = ((dileptons['i0'].pt > 25) | (dileptons['i1'].pt > 25))
-        Zmass = (((dileptons['i0'] + dileptons['i1']).mass - 91.19) < 15)
-        dileptonMask = OS & SF & pt25 & Zmass
+        Zmass_cut = (((dileptons['i0'] + dileptons['i1']).mass - 91.19) < 15)
+        Vpt_cut = ( (dileptons['i0'] + dileptons['i1']).pt > 100)
+        dileptonMask = OS & SF & pt25 & Zmass_cut & Vpt_cut
         good_dileptons = dileptons[dileptonMask]
         
         #ch_2mu = tight_ll[ak.sum(tight_ll.flavor, axis=1) == 0]
@@ -198,7 +199,6 @@ class Processor(processor.ProcessorABC):
         full_selection_2L = two_lep & two_jets
         full_selection_1L = one_lep & two_jets
         full_selection_0L = zero_lep & two_jets
-        #full_selection_2L = two_lep
 
         for ch in ["2L","1L","0L"]:
             if ch=="2L": selection = full_selection_2L
@@ -279,19 +279,20 @@ def _pdfunc(arr):
 
 def printIntegrals(h, obs):
     ints = h.integrate(obs)
-    print(ints, ints.values())
+    # print(ints, ints.values())
     yields = {}
     for key,v in ints.values().items():
-        print(key, key[0], key[1], v)
+        #print(key, key[0], key[1], v)
         sample = key[0]
         chan  = key[1]
         wei_id = key[2]
-        if wei_id == "Default":
-            yields[chan] = {}
-            yields[chan][sample] = []
+        if sample not in yields.keys():
+            yields[sample] = {}
+        if wei_id=="Default":
+            yields[sample][chan] = []
         else:
-            yields[chan][sample].append(v)
-    print(yields)
+            yields[sample][chan].append(v)
+    #print(yields)
     return yields
 
 def plot(histograms, outdir, fromPickles=False):
@@ -312,11 +313,13 @@ def plot(histograms, outdir, fromPickles=False):
         if observable=="dijet_pt":
             hist.plotgrid(histogram, overlay='PDFwei', col='dataset', row='channel', line_opts={})
             yi = printIntegrals(histogram, observable)
-            for ch,y1 in yi.items():
-                for s,y2 in y1.items():
-                    print("Channael:", ch, "sample=", y2)
+            #for a in yi.keys():
+            #    print(a, yi[a])
+            for samp,y1 in yi.items():
+                # print("Sample:", samp, "y1=", y1)
+                for ch,y2 in y1.items():
                     pdfunc = _pdfunc(np.array(y2))
-                    print (ch, s, "Uncertainty: %.1f %%"%(pdfunc/yi[ch][s][0]*100))
+                    print ("Ch=",ch, "sample=",samp, "Uncertainty: %.1f %%"%(pdfunc/yi[samp][ch][0]*100))
         else:
             hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
         plt.gca().autoscale()
@@ -350,7 +353,8 @@ if __name__ == "__main__":
         #xroot = 'root://xrootd-cms.infn.it/'
         xroot = 'root://cms-xrd-global.cern.ch/'
         
-        sampleInfo = si.ReadSampleInfoFile('2L_samples_2017_vhcc.txt')
+        #sampleInfo = si.ReadSampleInfoFile('2L_samples_2017_vhcc.txt')
+        sampleInfo = si.ReadSampleInfoFile('1L_samples_2017_vhcc.txt')
         
         file_list_DY = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles) for ds in [
             #'DY1ToLL_PtZ-50To150',
@@ -389,7 +393,7 @@ if __name__ == "__main__":
                                           #executor_args = {"schema": NanoAODSchema},
                                           #executor_args = {"schema": NanoAODPPSchema},
                                           executor = processor.futures_executor,
-                                          executor_args = {'schema': NanoAODSchema, "workers":6},# "xrootdtimeout": 10},# "skipbadfiles": True},
+                                          executor_args = {'schema': NanoAODSchema, "workers":8},# "xrootdtimeout": 10},# "skipbadfiles": True},
                                           #maxchunks=opt.numberOfFiles
                                       )
 
