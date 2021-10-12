@@ -13,7 +13,7 @@ def getFilesFromDas(ds):
     #print(ds, allfiles)
     return allfiles
 
-def makeDasQueryAndPickle(inpfile):
+def makeDasQueryAndPickle(inpfile, pklFileName="./FilesOnDas.pkl"):
 
     allFiles = {}
     with open(inpfile, mode='r') as in_file:
@@ -33,8 +33,6 @@ def makeDasQueryAndPickle(inpfile):
     # 
     # print(allFiles)
 
-
-    pklFileName = "./FilesOnDas.pkl"
     pkl.dump( allFiles,  open(pklFileName,  'wb')  )
     print("The files are written to ", pklFileName)
     return allFiles
@@ -114,7 +112,7 @@ if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Run quick plots from NanoAOD input files')
     parser.add_argument("inputfile")
-    parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
+    parser.add_argument('-o','--output', type=str, default="./FilesOnDas.pkl", help="Directory to output the plots.")
     parser.add_argument('--pkl', type=str, default=None,  help="Make plots from pickled file.")
 
     opt = parser.parse_args()
@@ -125,22 +123,27 @@ if __name__ == "__main__":
     if ".pkl" in opt.inputfile:
         full_file_list = pkl.load(open(opt.inputfile,'rb'))
     else:
-        full_file_list = makeDasQueryAndPickle(opt.inputfile)
+        full_file_list = makeDasQueryAndPickle(opt.inputfile, opt.output)
 
     print("All samples with query:", full_file_list.keys())
 
-    sampleInfo = ReadSampleInfoFile('samples_2017_vhcc.txt')
+    #sampleInfo = ReadSampleInfoFile('2L_samples_2017_vhcc.txt')
+    sampleInfo = ReadSampleInfoFile('mc_2016_vhcc.conf')
 
     print("all processes:", sampleInfo.keys())
     
-    xroot = 'root://xrootd-cms.infn.it/'
+    #xroot = 'root://xrootd-cms.infn.it/'
+    xroot = 'root://cms-xrd-global.cern.ch/'
 
-    file_list = makeListOfInputRootFilesForProcess("W1Jets-Pt50To150", sampleInfo, "./FilesOnDas.pkl", xroot, 2)
+    """
+    pkl = "./FilesOnDas_2016.pkl"
+    file_list = makeListOfInputRootFilesForProcess("W1Jets-Pt50To150", sampleInfo, pkl, xroot, 2)
     print(file_list)
 
 
-    file_list = makeListOfInputRootFilesForProcess("TT_DiLep", sampleInfo, "./FilesOnDas.pkl", xroot, 2)
+    file_list = makeListOfInputRootFilesForProcess("TT_DiLep", sampleInfo, pkl, xroot, 2)
     print(file_list)
 
-    file_list = makeListOfInputRootFilesForProcess("WZTo3L1Nu", sampleInfo, "./FilesOnDas.pkl", xroot, 2)
+    file_list = makeListOfInputRootFilesForProcess("WZTo3L1Nu", sampleInfo, pkl, xroot, 2)
     print(file_list)
+    """

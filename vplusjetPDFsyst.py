@@ -73,7 +73,7 @@ class Processor(processor.ProcessorABC):
         )
         self._accumulator['dijet_pt'] = hist.Hist("Counts", axis["dataset"], axis["channel"], axis["PDFwei"], axis["dijet_pt"])
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
-        self._accumulator['sumw'] =  processor.defaultdict_accumulator( float )
+        self._accumulator['sumw'] =  processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, float) )
 
 
     @property
@@ -96,7 +96,6 @@ class Processor(processor.ProcessorABC):
         #print(LHE_Vpt)
 
         weight_nosel = events.genWeight
-        output["sumw"][dataset] += np.sum(weight_nosel)
         #print(weight_nosel)
 
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
@@ -206,6 +205,7 @@ class Processor(processor.ProcessorABC):
             if ch=="0L": selection = full_selection_0L
             selected_events = events[selection]
             output['cutflow'][dataset]["selected_events_"+ch] += len(selected_events)
+            
 
             dijets = jets[selection]
 
@@ -221,6 +221,7 @@ class Processor(processor.ProcessorABC):
             weight = selected_events.genWeight
             #print("weights:", len(weight), weight)
             #weight = np.ones(len(selected_events))
+            output["sumw"][dataset]["selected_events_"+ch] += np.sum(weight)
 
             if ch=="2L":
                 output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[selection]), weight=weight)
@@ -290,6 +291,7 @@ def printIntegrals(h, obs):
             yields[sample] = {}
         if wei_id=="Default":
             yields[sample][chan] = []
+            print(sample, chan, "Default wei = ", v, "(not used in calculation)")
         else:
             yields[sample][chan].append(v)
     #print(yields)
@@ -318,8 +320,11 @@ def plot(histograms, outdir, fromPickles=False):
             for samp,y1 in yi.items():
                 # print("Sample:", samp, "y1=", y1)
                 for ch,y2 in y1.items():
-                    pdfunc = _pdfunc(np.array(y2))
-                    print ("Ch=",ch, "sample=",samp, "Uncertainty: %.1f %%"%(pdfunc/yi[samp][ch][0]*100))
+                    try:
+                        pdfunc = _pdfunc(np.array(y2))
+                        print ("Ch=",ch, "sample=",samp, "Uncertainty: %.1f %%"%(pdfunc/yi[samp][ch][0]*100))
+                    except:
+                        pass
         else:
             hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
         plt.gca().autoscale()
@@ -353,10 +358,12 @@ if __name__ == "__main__":
         #xroot = 'root://xrootd-cms.infn.it/'
         xroot = 'root://cms-xrd-global.cern.ch/'
         
+        sampleInfo = si.ReadSampleInfoFile('mc_2018_vhcc.conf')
+        files_das = "./FilesOnDas_2018.pkl"
         #sampleInfo = si.ReadSampleInfoFile('2L_samples_2017_vhcc.txt')
-        sampleInfo = si.ReadSampleInfoFile('1L_samples_2017_vhcc.txt')
-        
-        file_list_DY = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles) for ds in [
+        #sampleInfo = si.ReadSampleInfoFile('1L_samples_2017_vhcc.txt')
+    
+        file_list_DY = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, files_das, xroot, lim=opt.numberOfFiles) for ds in [
             #'DY1ToLL_PtZ-50To150',
             #'DY2ToLL_PtZ-50To150',
             #'DY1ToLL_PtZ-150To250',
@@ -368,7 +375,7 @@ if __name__ == "__main__":
         ]
                     }
         
-        file_list_other = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles) for ds in [
+        file_list_other = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, files_das, xroot, lim=opt.numberOfFiles) for ds in [
             #'ZH125ToCC_ZLL_powheg',
             #'TT_DiLep',
             #'TT_SingleLep',
@@ -376,7 +383,7 @@ if __name__ == "__main__":
         ]
                        }
         
-        file_list_all = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, "./FilesOnDas.pkl", xroot, lim=opt.numberOfFiles, checkOpen=True) for ds in sampleInfo.keys()}
+        file_list_all = {ds: si.makeListOfInputRootFilesForProcess(ds, sampleInfo, files_das, xroot, lim=opt.numberOfFiles, checkOpen=True) for ds in sampleInfo.keys()}
         
         #file_list = file_list_DY
         #file_list = file_list_other
@@ -393,7 +400,8 @@ if __name__ == "__main__":
                                           #executor_args = {"schema": NanoAODSchema},
                                           #executor_args = {"schema": NanoAODPPSchema},
                                           executor = processor.futures_executor,
-                                          executor_args = {'schema': NanoAODSchema, "workers":8},# "xrootdtimeout": 10},# "skipbadfiles": True},
+                                          executor_args = {'schema': NanoAODSchema, "workers":8, "skipbadfiles": True},
+                                          # "xrootdtimeout": 10},# "skipbadfiles": True},
                                           #maxchunks=opt.numberOfFiles
                                       )
 
@@ -403,8 +411,10 @@ if __name__ == "__main__":
 
 
         for key, value in output['cutflow'].items():
-            print(key, value)
+            #print(key, value)
             for key2, value2 in output['cutflow'][key].items():
                 print(key, key2,value2)
         for key, value in output['sumw'].items():
-            print(key, value)
+            #print(key, value)
+            for key2, value2 in output['sumw'][key].items():
+                print(key, key2,value2)
