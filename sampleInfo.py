@@ -7,6 +7,19 @@ import pickle as pkl
 import subprocess
 import uproot
 
+def getRootFilesFromPath(d, lim=None):
+    if "xrootd" in d:
+        import subprocess
+        sp = d.split("/")
+        siteIP = "/".join(sp[0:3])
+        pathToFiles = "/".join(sp[3:-1])
+        allfiles = str(subprocess.check_output(["xrdfs", siteIP, "ls", pathToFiles]), 'utf-8').split("\n")
+        rootfiles = [siteIP+'/'+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
+    else:
+        rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
+    # print(rootfiles)
+    return rootfiles
+
 def getFilesFromDas(ds):
     allfiles = str(subprocess.check_output(str('/cvmfs/cms.cern.ch/common/dasgoclient -query="file dataset=%s"'%ds.strip()), 
                                            shell=True), 'utf-8').split("\n")

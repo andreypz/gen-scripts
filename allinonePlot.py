@@ -7,13 +7,6 @@ from matplotlib import pyplot as plt
 import pickle as pkl
 import mplhep as hep
 
-import argparse
-parser = argparse.ArgumentParser(description='Run quick plots')
-parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
-parser.add_argument('-t','--inputType', type=int, default=0, help="Type of file to plot from. 0 - from lheAnalyzer, 1 - from cofeGeno")
-
-opt = parser.parse_args()
-
 lumi = 1 #fb
 scales_150_250 = {
     "2016_nj":
@@ -79,7 +72,7 @@ nanogen_scales_250_400 = {
 }
 
 
-def plotAll(inputType, scales, hAll, h2016_nj=None, h2017_1j=None, h2017_2j=None):
+def plotAll(inputType, outdir, scales, hAll, h2016_nj=None, h2017_1j=None, h2017_2j=None):
 
     if inputType==0:
         observables = h2016_nj.keys()
@@ -93,12 +86,12 @@ def plotAll(inputType, scales, hAll, h2016_nj=None, h2017_1j=None, h2017_2j=None
             h1 = h2016_nj[obs]
             h2 = h2017_1j[obs]
             h3 = h2017_2j[obs]
-            plotType0(obs, h1,h2,h3, scales)
+            plotType0(obs, outdir, h1,h2,h3, scales)
         elif inputType==1:
-            plotType1(obs, hAll[obs], scales)
+            plotType1(obs, outdir, hAll[obs], scales)
         
-def plotType0(obs, h2016_nj,h2017_1j,h2017_2j, scales):
-    outdir = opt.outdir
+def plotType0(obs, outdir, h2016_nj,h2017_1j,h2017_2j, scales):
+    # To make plots produced from LHE Analyzer
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     if not os.path.exists(outdir+'_scaled'):
@@ -130,9 +123,9 @@ def plotType0(obs, h2016_nj,h2017_1j,h2017_2j, scales):
     plt.gcf().savefig(f"{outdir}_scaled/{obs}.png")
 
 
-def plotType1(obs, hAll, scales):
+def plotType1(obs, outdir, hAll, scales):
+    # To make plots produced from NanoGEN step
 
-    outdir = opt.outdir
     if not os.path.exists(outdir):
         os.makedirs(outdir)
     if not os.path.exists(outdir+'_scaled'):
@@ -187,9 +180,18 @@ def readFromPickles(inputfile):
     return hists
 
 
-if __name__ == "__main__":
+def main():
     print("This is the __main__ part")
+
+    import argparse
+    parser = argparse.ArgumentParser(description='Run quick plots')
+    parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
+    parser.add_argument('-t','--inputType', type=int, default=0, help="Type of file to plot from. 0 - from lheAnalyzer, 1 - from cofeGeno")
     
+    opt = parser.parse_args()
+
+    print(opt)
+ 
     if opt.inputType==0:
 
         scales = scales_150_250
@@ -201,10 +203,16 @@ if __name__ == "__main__":
         #h2017_1j = readFromPickles('plots_2017_1j_ZpT_260_390/Pickles.pkl')
         #h2017_2j = readFromPickles('plots_2017_2j_ZpT_260_390/Pickles.pkl')
         
-        plotAll(opt.inputType, scales, None, h2016_nj, h2017_1j, h2017_2j)
+        plotAll(opt.inputType, opt.outdir, scales, None, h2016_nj, h2017_1j, h2017_2j)
         
     elif opt.inputType==1:
         scales = nanogen_scales_250_400
         #pickledCoffea = readFromPickles('plots_CoffeaHist/Pickles.pkl')
-        pickledCoffea = readFromPickles('plots_Cofiano_260_390/Pickles.pkl')
-        plotAll(opt.inputType, scales, pickledCoffea)
+        #pickledCoffea = readFromPickles('plots_Cofiano_260_390/Pickles.pkl')
+        #pickledCoffea = readFromPickles('October_18_plots_Cofiano_260_390/Pickles.pkl')
+        pickledCoffea = readFromPickles('October_18_plots_Test/Pickles.pkl')
+        plotAll(opt.inputType, opt.outdir, scales, pickledCoffea)
+
+
+if __name__ == "__main__":
+    main()
