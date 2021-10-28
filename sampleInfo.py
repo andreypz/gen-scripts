@@ -7,6 +7,17 @@ import pickle as pkl
 import subprocess
 import uproot
 
+xs_150_250 = {
+    "2016_DYnJ": 88,
+    "2017_DY1J": 9.7,
+    "2017_DY2J": 16.0,
+}
+xs_250_400 = {
+    "2016_DYnJ": 3.13,
+    "2017_DY1J": 1.13,
+    "2017_DY2J": 2.71,
+}
+
 def getRootFilesFromPath(d, lim=None):
     if "xrootd" in d:
         import subprocess

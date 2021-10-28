@@ -105,7 +105,7 @@ class Processor(processor.ProcessorABC):
         
 
         LHE_vpt_cut = (LHE_Vpt>=155) & (LHE_Vpt<=245)
-        #LHE_vpt_cut = (LHE_Vpt>=260) & (LHE_Vpt<=390)
+        #LHE_vpt_cut = (LHE_Vpt>=255) & (LHE_Vpt<=395)
 
 
         jets15['isClean'] = isClean(jets15, leptons, drmin=0.5)
@@ -155,9 +155,13 @@ class Processor(processor.ProcessorABC):
         
         print(accumulator['sumw'])
 
-        weights = { '2016_DYnJ': lumi*8.47/accumulator['sumw']['2016_DYnJ'],
-                    '2017_DY1J': lumi*8.47/accumulator['sumw']['2017_DY1J'],
-                    '2017_DY2J': lumi*8.47/accumulator['sumw']['2017_DY2J'],
+        xs = si.xs_150_250
+        #xs = si.xs_250_400
+        print("Cross sections for normalization:", xs)
+
+        weights = { '2016_DYnJ': lumi*xs['2016_DYnJ']/accumulator['sumw']['2016_DYnJ'],
+                    '2017_DY1J': lumi*xs['2017_DY1J']/accumulator['sumw']['2017_DY1J'],
+                    '2017_DY2J': lumi*xs['2017_DY2J']/accumulator['sumw']['2017_DY2J'],
                 }
         print(weights)
 
@@ -178,6 +182,9 @@ def plot(histograms, outdir, fromPickles=False):
     if not path.exists(outdir):
         makedirs(outdir)
 
+    if not fromPickles:
+        pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
+
     for observable, histogram in histograms.items():
         #print (observable, histogram, type(histogram))
         if type(histogram) is hist.hist_tools.Hist:
@@ -191,13 +198,31 @@ def plot(histograms, outdir, fromPickles=False):
         axes = list(map(lambda x:x.name, histogram.axes() ))
         if 'dataset' in axes:
             hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
-        elif 'ds_scaled' in axes:
-            hist.plot1d(histogram, overlay='ds_scaled', line_opts={}, overflow='none')
-        plt.gca().autoscale()
-        plt.gcf().savefig(f"{outdir}/{observable}.png")
+            plt.gca().autoscale()
 
-    if not fromPickles:
-        pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
+        elif 'ds_scaled' in axes:
+            fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
+                                          gridspec_kw={"height_ratios": (3, 1)},sharex=True)
+            fig.subplots_adjust(hspace=.07)
+            
+            hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
+            ax.set_ylim(0, None)
+            
+            leg = ax.legend()
+            hist.plotratio(num = histogram["2017_DY 1+2j"].project(observable),
+                           denom = histogram["2016_DY 1+2j"].project(observable),
+                           error_opts={'color': 'k', 'marker': '.'},
+                           ax=rax,
+                           denom_fill_opts={},
+                           guide_opts={},
+                           unc='num'
+                       )
+
+            rax.set_ylabel('Ratio')
+            rax.set_ylim(0.5,1.5)
+
+        plt.gcf().savefig(f"{outdir}/{observable}.png", bbox_inches='tight')
+            
 
 def plotFromPickles(inputfile, outdir):
     hists = pkl.load(open(inputfile,'rb'))
