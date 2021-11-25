@@ -24,18 +24,19 @@ class Processor(processor.ProcessorABC):
         
         axis = { "dataset": hist.Cat("dataset", ""),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "LHE V PT [GeV]", 100, 0, 600),                 
-                 'wei'        : hist.Bin("wei", "wei", 50, -10, 10), 
-                 'nlep'       : hist.Bin("nlep", "nlep", 12, 0, 6), 
-                 'lep_eta'    : hist.Bin("lep_eta", "lep_eta", 50, -5, 5), 
-                 'lep_pt'     : hist.Bin("lep_pt", "lep_pt", 50, 0, 500), 
-                 'dilep_m'    : hist.Bin("dilep_m", "dilep_m", 50, 50, 120), 
-                 'dilep_pt'   : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600), 
-                 'njet15'     : hist.Bin("njet15", "njet15", 12, 0, 6), 
-                 'jet_eta'    : hist.Bin("jet_eta", "jet_eta", 50, -5, 5), 
-                 'jet_pt'     : hist.Bin("jet_pt", "jet_pt", 50, 0, 500), 
-                 'dijet_dr'   : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5), 
-                 'dijet_m'    : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200), 
-                 'dijet_pt'   : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600)
+                 'wei'         : hist.Bin("wei", "wei", 50, -10, 10), 
+                 'nlep'        : hist.Bin("nlep", "nlep", 12, 0, 6), 
+                 'lep_eta'     : hist.Bin("lep_eta", "lep_eta", 50, -5, 5), 
+                 'lep_pt'      : hist.Bin("lep_pt", "lep_pt", 50, 0, 500), 
+                 'dilep_m'     : hist.Bin("dilep_m", "dilep_m", 50, 50, 120), 
+                 'dilep_pt'    : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600), 
+                 'njet25'      : hist.Bin("njet25", "njet25", 12, 0, 6), 
+                 'jet_eta'     : hist.Bin("jet_eta", "jet_eta", 50, -5, 5), 
+                 'jet_pt'      : hist.Bin("jet_pt", "jet_pt", 50, 0, 500), 
+                 'dijet_m'     : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200), 
+                 'dijet_pt'    : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600),
+                 'dijet_dr'    : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5), 
+                 'dijet_dr_neg': hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5) 
              }
         
         self._accumulator = processor.dict_accumulator( 
@@ -67,11 +68,11 @@ class Processor(processor.ProcessorABC):
                              (particles.status == 1) & (particles.pt>15) & (np.abs(particles.eta)<2.5) ]
         
         genjets = events.GenJet
-        jets15 = genjets[ (np.abs(genjets.eta) < 2.5)  &  (genjets.pt > 25) ]
-        #jets15 = particles[ (np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) | (np.abs(particles.pdgId) == 15) ]
-        #jets15  = particles[ ( (np.abs(particles.pdgId) == 1) | (np.abs(particles.pdgId) == 2) | (np.abs(particles.pdgId) == 3 ) |
+        jets25 = genjets[ (np.abs(genjets.eta) < 2.5)  &  (genjets.pt > 25) ]
+
+        #jets25  = particles[ ( (np.abs(particles.pdgId) == 1) | (np.abs(particles.pdgId) == 2) | (np.abs(particles.pdgId) == 3 ) |
         #                       (np.abs(particles.pdgId) == 4) | (np.abs(particles.pdgId) == 5) | (np.abs(particles.pdgId) == 21 ) ) &
-        #                     (particles.status==1) & (particles.pt > 15) ]
+        #                     (particles.status==1) & (particles.pt > 25) ]
 
 
         
@@ -83,11 +84,8 @@ class Processor(processor.ProcessorABC):
         
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
         
-        #LL_events = events[ak.num(leptons) == 2]
-        #JJ_events = events[ak.num(jets15) >= 2]
         
         output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons))
-        output['njet15'].fill(dataset=dataset, njet15=ak.num(jets15))
 
 
         dileptons = ak.combinations(leptons, 2, fields=['i0', 'i1'])
@@ -104,17 +102,19 @@ class Processor(processor.ProcessorABC):
         two_lep = ak.num(good_dileptons) == 1
         
 
-        LHE_vpt_cut = (LHE_Vpt>=155) & (LHE_Vpt<=245)
-        #LHE_vpt_cut = (LHE_Vpt>=255) & (LHE_Vpt<=395)
+        #LHE_vpt_cut = (LHE_Vpt>=155) & (LHE_Vpt<=245)
+        LHE_vpt_cut = (LHE_Vpt>=255) & (LHE_Vpt<=395)
+        
 
-
-        jets15['isClean'] = isClean(jets15, leptons, drmin=0.5)
-        j_isclean = isClean(jets15, leptons, drmin=0.5)
+        jets25['isClean'] = isClean(jets25, leptons, drmin=0.5)
+        j_isclean = isClean(jets25, leptons, drmin=0.5)
 
         #good_jets = jets
-        good_jets = jets15[j_isclean]
+        good_jets = jets25[j_isclean]
         two_jets = (ak.num(good_jets) >= 2)
         
+        output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets))
+
         full_selection = two_lep & two_jets & LHE_vpt_cut
         #full_selection = two_lep & two_jets & LHE_vpt_cut & vmass_cut
         #full_selection = two_lep & two_jets & vpt_cut & vmass_cut
@@ -147,6 +147,12 @@ class Processor(processor.ProcessorABC):
         output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
         output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
 
+        #print("Negative DRs:", dijet_dr[weight<0])
+        #print("Negative wei:", weight[weight<0])
+        neg_wei = np.abs(weight[weight<0])
+        neg_wei_dr = dijet_dr[weight<0]
+        output['dijet_dr_neg'].fill(dataset=dataset, dijet_dr=neg_wei_dr, weight=neg_wei)
+
         return output
 
     def postprocess(self, accumulator):
@@ -155,8 +161,8 @@ class Processor(processor.ProcessorABC):
         
         print(accumulator['sumw'])
 
-        xs = si.xs_150_250
-        #xs = si.xs_250_400
+        #xs = si.xs_150_250
+        xs = si.xs_250_400
         print("Cross sections for normalization:", xs)
 
         weights = { '2016_DYnJ': lumi*xs['2016_DYnJ']/accumulator['sumw']['2016_DYnJ'],
@@ -177,6 +183,32 @@ class Processor(processor.ProcessorABC):
 
 
 
+def fracOfNegWeiPlot(histograms, outdir, year="2016"):
+
+    if histograms["dijet_dr"] and histograms["dijet_dr_neg"]:
+ 
+        print(histograms)
+        h_tot = histograms["dijet_dr"]
+        h_neg = histograms["dijet_dr_neg"]
+        fig, ax = plt.subplots()
+        
+        #leg = plt.legend()
+        hist.plotratio(num = h_neg[year+"_DY 1+2j"].project("dijet_dr"),
+                       denom = h_tot[year+"_DY 1+2j"].project("dijet_dr"),
+                       error_opts={'color': 'k', 'marker': '.'},
+                       ax=ax,
+                       #denom_fill_opts={},
+                       #guide_opts={},
+                       unc='num'
+        )
+        
+        ax.set_ylabel('Negative/Total Ratio')
+        ax.set_ylim(0.1,1.5)
+        plt.title(f"Contribution from negative weights in {year} sample.")
+        plt.gcf().savefig(f"{outdir}/NegWeiFrac_{year}.png", bbox_inches='tight')
+    else:
+        print("The hists for Neg weight plot do not exist!")
+        
 def plot(histograms, outdir, fromPickles=False):
     '''Plots all histograms. No need to change.'''
     if not path.exists(outdir):
@@ -186,11 +218,19 @@ def plot(histograms, outdir, fromPickles=False):
         pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
 
     for observable, histogram in histograms.items():
+        if observable=="dijet_dr_neg": 
+            obs_axis="dijet_dr"
+        else:
+            obs_axis=observable
         #print (observable, histogram, type(histogram))
         if type(histogram) is hist.hist_tools.Hist:
             print(observable, "I am a Hist", histogram)
+            if not histogram.values():
+                print("This hist is empty!", histogram.values())
+                continue
         else:
             continue
+
         plt.gcf().clf()
 
         #print(histogram.axes())
@@ -209,8 +249,8 @@ def plot(histograms, outdir, fromPickles=False):
             ax.set_ylim(0, None)
             
             leg = ax.legend()
-            hist.plotratio(num = histogram["2017_DY 1+2j"].project(observable),
-                           denom = histogram["2016_DY 1+2j"].project(observable),
+            hist.plotratio(num = histogram["2017_DY 1+2j"].project(obs_axis),
+                           denom = histogram["2016_DY 1+2j"].project(obs_axis),
                            error_opts={'color': 'k', 'marker': '.'},
                            ax=rax,
                            denom_fill_opts={},
@@ -218,11 +258,13 @@ def plot(histograms, outdir, fromPickles=False):
                            unc='num'
                        )
 
-            rax.set_ylabel('Ratio')
+            rax.set_ylabel('2017/2016 Ratio')
             rax.set_ylim(0.5,1.5)
 
         plt.gcf().savefig(f"{outdir}/{observable}.png", bbox_inches='tight')
             
+    fracOfNegWeiPlot(histograms, outdir, "2016")
+    fracOfNegWeiPlot(histograms, outdir, "2017")
 
 def plotFromPickles(inputfile, outdir):
     hists = pkl.load(open(inputfile,'rb'))
@@ -255,19 +297,20 @@ def main():
     p2017_DY1_150_250 = ntuples_location + "/DY1JetsToLL_LHEZpT_150-250_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_114808/0000/"
     p2017_DY2_150_250 = ntuples_location + "/DY2JetsToLL_LHEZpT_150-250_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_115012/0000/"
 
-    p2016_DYn_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Summer15/FromGridPack-19Oct2021/211019_110125/0000/"
+    p2016_DYn_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCUET8M1_13TeV_Summer15/FromGridPack-19Oct2021/211019_110125/0000/"
+    #p2016_DYn_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Summer15/FromGridPack-02Nov2021/211102_143539/0000/"
     p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_110316/0000/"
     p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_105906/0000/"
 
 
     file_list = {
-        '2016_DYnJ' :  si.getRootFilesFromPath(p2016_DYn_100_250, opt.numberOfFiles),
-        '2017_DY1J' :  si.getRootFilesFromPath(p2017_DY1_150_250, opt.numberOfFiles),
-        '2017_DY2J' :  si.getRootFilesFromPath(p2017_DY2_150_250, opt.numberOfFiles),
+        #'2016_DYnJ' :  si.getRootFilesFromPath(p2016_DYn_100_250, opt.numberOfFiles),
+        #'2017_DY1J' :  si.getRootFilesFromPath(p2017_DY1_150_250, opt.numberOfFiles),
+        #'2017_DY2J' :  si.getRootFilesFromPath(p2017_DY2_150_250, opt.numberOfFiles),
 
-        #'2016_DYnJ' :  si.getRootFilesFromPath(p2016_DYn_250_400, opt.numberOfFiles),
-        #'2017_DY1J' :  si.getRootFilesFromPath(p2017_DY1_250_400, opt.numberOfFiles),
-        #'2017_DY2J' :  si.getRootFilesFromPath(p2017_DY2_250_400, opt.numberOfFiles),
+        '2016_DYnJ' :  si.getRootFilesFromPath(p2016_DYn_250_400, opt.numberOfFiles),
+        '2017_DY1J' :  si.getRootFilesFromPath(p2017_DY1_250_400, opt.numberOfFiles),
+        '2017_DY2J' :  si.getRootFilesFromPath(p2017_DY2_250_400, opt.numberOfFiles),
 
         #'2017_DY1J' :  [p2017_DY1_250_400+"/Tree_1.root"],
         #'2017_DY2J' :  [p2017_DY2_250_400+"/Tree_1.root"],
