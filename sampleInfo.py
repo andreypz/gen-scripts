@@ -13,22 +13,43 @@ xs_150_250 = {
     "2017_DY2J": 16.0,
 }
 xs_250_400 = {
-    "2016_DYnJ": 3.13,
+    "2016_DYnJ": 3.13,  # TuneCUET8M1
+    #"2016_DYnJ": 3.67,  # TuneCP5
     "2017_DY1J": 1.13,
     "2017_DY2J": 2.71,
 }
 
 def getRootFilesFromPath(d, lim=None):
+    import subprocess
     if "xrootd" in d:
-        import subprocess
         sp = d.split("/")
-        siteIP = "/".join(sp[0:3])
-        pathToFiles = "/".join(sp[3:-1])
+        siteIP = "/".join(sp[0:4])
+        pathToFiles = "/".join(sp[3:-1])+"/"
         allfiles = str(subprocess.check_output(["xrdfs", siteIP, "ls", pathToFiles]), 'utf-8').split("\n")
-        rootfiles = [siteIP+'/'+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
+        #rootfiles = [siteIP+'/'+f for i,f in enumerate(allfiles) if f.endswith(".root") and (lim==None or i<lim)]
     else:
-        rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
-    # print(rootfiles)
+        siteIP = ""
+        pathToFiles = d
+        allfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root")]
+        #rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
+        #rootfiles
+
+    rootfiles = []
+    for file_or_dir in allfiles:
+        # print(file_or_dir)
+        if (file_or_dir == "" or file_or_dir == pathToFiles): continue
+        file_or_dir = siteIP + file_or_dir
+        if file_or_dir.endswith(".root"):
+            if lim==None or len(rootfiles)<lim:
+                rootfiles.append(file_or_dir)
+                
+        elif not "log" in file_or_dir and not file_or_dir[-1]=='/' and  len(rootfiles)<lim:
+            file_or_dir=file_or_dir+'/'
+            rootfiles.extend(getRootFilesFromPath(file_or_dir, lim-len(rootfiles)))
+
+    #print("Input path:", d)
+    #print("List of root files to be processed:\n",rootfiles)
+
     return rootfiles
 
 def getFilesFromDas(ds):

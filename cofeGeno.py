@@ -297,10 +297,16 @@ def main():
     p2017_DY1_150_250 = ntuples_location + "/DY1JetsToLL_LHEZpT_150-250_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_114808/0000/"
     p2017_DY2_150_250 = ntuples_location + "/DY2JetsToLL_LHEZpT_150-250_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_115012/0000/"
 
-    p2016_DYn_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCUET8M1_13TeV_Summer15/FromGridPack-19Oct2021/211019_110125/0000/"
+    #p2016_DYn_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCUET8M1_13TeV_Summer15/FromGridPack-19Oct2021/211019_110125/0000/"
     #p2016_DYn_250_400 = ntuples_location + "/DYnJetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Summer15/FromGridPack-02Nov2021/211102_143539/0000/"
-    p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_110316/0000/"
-    p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_105906/0000/"
+    #p2017_DY1_250_400 = ntuples_location + "/DY1JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_110316/0000/"
+    #p2017_DY2_250_400 = ntuples_location + "/DY2JetsToLL_LHEZpT_250-400_TuneCP5_13TeV_Fall17/FromGridPack-19Oct2021/211019_105906/0000/"
+
+    ntuples_location = "root://grid-cms-xrootd.physik.rwth-aachen.de//store/mc/"
+    p2016_DYn_250_400 = ntuples_location + "/RunIISummer16NanoAODv7/DYJetsToLL_Pt-250To400_TuneCUETP8M1_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1"
+    p2017_DY1_250_400 = ntuples_location + "/RunIIFall17NanoAODv7/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/"
+    p2017_DY2_250_400 = ntuples_location + "/RunIIFall17NanoAODv7/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/"
+
 
 
     file_list = {
