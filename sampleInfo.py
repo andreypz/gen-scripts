@@ -155,7 +155,7 @@ if __name__ == "__main__":
     print("This is the __main__ part")
 
     import argparse
-    parser = argparse.ArgumentParser(description='Run quick plots from NanoAOD input files')
+    parser = argparse.ArgumentParser(description='Run das quiries etc')
     parser.add_argument("inputfile")
     parser.add_argument('-o','--output', type=str, default="./FilesOnDas.pkl", help="Directory to output the plots.")
     parser.add_argument('--pkl', type=str, default=None,  help="Make plots from pickled file.")
