@@ -107,7 +107,7 @@ def ReadSampleInfoFile(inpfile):
 
             info[name] = sampleInfo
     # 
-    #print(info)
+    # print(info)
 
     return info
 
@@ -158,7 +158,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run das quiries etc')
     parser.add_argument("inputfile")
     parser.add_argument('-o','--output', type=str, default="./FilesOnDas.pkl", help="Directory to output the plots.")
-    parser.add_argument('--pkl', type=str, default=None,  help="Make plots from pickled file.")
 
     opt = parser.parse_args()
 
@@ -173,12 +172,20 @@ if __name__ == "__main__":
     print("All samples with query:", full_file_list.keys())
 
     #sampleInfo = ReadSampleInfoFile('2L_samples_2017_vhcc.txt')
-    sampleInfo = ReadSampleInfoFile('mc_2016_vhcc.conf')
+    #sampleInfo = ReadSampleInfoFile('mc_2016_vhcc.conf')
+    sampleInfo = ReadSampleInfoFile('mc_vjets_samples.info')
 
     print("all processes:", sampleInfo.keys())
     
     #xroot = 'root://xrootd-cms.infn.it/'
-    xroot = 'root://cms-xrd-global.cern.ch/'
+    #xroot = 'root://cms-xrd-global.cern.ch/'
+    xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
+   
+    pkl_file = "./VJetsPickle.pkl"
+    #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
+    #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
+    file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
+    print(file_list)
 
     """
     pkl = "./FilesOnDas_2016.pkl"
