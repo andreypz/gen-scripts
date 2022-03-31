@@ -81,9 +81,13 @@ class Processor(processor.ProcessorABC):
 
 
         weight_nosel = events.genWeight
+
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
 
-        output["sumw"][dataset] += np.sum(weight_nosel)
+        if dataset in ['DYJets_inc_FXFX']:
+            output["sumw"][dataset] += np.sum(weight_nosel)
+        else:
+            output["sumw"][dataset] += np.sum(np.sign(weight_nosel))
         if self.verblvl>0:
             print("\n",dataset, "wei:", weight_nosel)
 
@@ -139,7 +143,10 @@ class Processor(processor.ProcessorABC):
         dijet_dr = dijets[:, 0].delta_r(dijets[:, 1])
 
 
-        weight = selected_events.genWeight
+        if dataset in ['DYJets_inc_FXFX']:
+            weight = selected_events.genWeight
+        else:
+            weight = np.sign(selected_events.genWeight)
         #weight = np.ones(len(selected_events))
         weight2 = np.repeat(np.array(weight),2)
         #print("weight length:", len(weight), len(weight2))
@@ -299,6 +306,13 @@ def plotFromPickles(inputfile, outdir):
     hists = pkl.load(open(inputfile,'rb'))
     plot(hists, outdir, True)
 
+def retry_handler(exception, task_record):
+    from parsl.executors.high_throughput.interchange import ManagerLost
+    if isinstance(exception, ManagerLost):
+            return 0.1
+    else:
+        return 1
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Run quick plots from NanoGEN input files')
@@ -358,9 +372,9 @@ def main():
         sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
 
         file_list = {
-            #'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_FXFX': si.makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
-            #'DYJets_inc_MinNLO': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_inc_MinNLO': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
 
             #'DYJets_inc_MLM': ['/user/andreypz/ZH_HCC_ZLL_NanoV6_2017_7C7E.root']
         }
@@ -408,7 +422,9 @@ def main():
                 f"export PYTHONPATH=$PYTHONPATH:{getcwd()}",
             ]
             condor_extra = [
-                f'source {environ["HOME"]}/.bashrc',
+                'source ~/work/vjets/conda_setup.sh',
+                'conda activate coffea-env',
+                'echo LETSGO'
             ]
             
             import parsl
@@ -431,13 +447,15 @@ def main():
                         max_workers=1,
                         provider=CondorProvider(
                             nodes_per_block=1,
-                            init_blocks=1,
-                            max_blocks=1,
+                            init_blocks=10,
+                            max_blocks=40,
                             worker_init="\n".join(env_extra + condor_extra),
-                            walltime="00:20:00",
+                            walltime="00:50:00",
                         ),
                     )
-            ]
+                ],
+                retries=10,
+                retry_handler=retry_handler,
             )
             dfk = parsl.load(htex_config)
             '''
