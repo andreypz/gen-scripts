@@ -9,8 +9,9 @@ import coffea.processor as processor
 import awkward as ak
 from coffea.nanoevents import NanoEventsFactory
 from functools import partial
+from coffea.nanoevents import NanoAODSchema
 
-from Coffea_NanoGEN_schema import NanoGENSchema
+#from Coffea_NanoGEN_schema import NanoGENSchema
 import sampleInfo as si
 
 def isClean(obj_A, obj_B, drmin=0.4):
@@ -242,7 +243,7 @@ def fracOfNegWeiPlot(histograms, outdir, year="2016"):
     else:
         print("The hists for Neg weight plot do not exist!")
 
-def plot(histograms, outdir, fromPickles=False):
+def plot(histograms, outdir, proc_type, fromPickles=False):
     '''Plots all histograms. No need to change.'''
     if not path.exists(outdir):
         makedirs(outdir)
@@ -270,10 +271,55 @@ def plot(histograms, outdir, fromPickles=False):
         #print(list(map(lambda x:x.name, histogram.axes() )))
         axes = list(map(lambda x:x.name, histogram.axes() ))
         if 'dataset' in axes:
-            hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
-            plt.gca().autoscale()
 
-            #if opt.proc_type=="ul"
+            if proc_type=="ul":
+                print("Plotting for UL", "axis = ", obs_axis)
+                fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
+                                              gridspec_kw={"height_ratios": (2, 1)},sharex=True)
+                fig.subplots_adjust(hspace=.07)
+                
+                hist.plot1d(histogram, overlay='dataset', ax=ax, line_opts={}, overflow='none')
+                ax.set_ylim(0, None)
+                
+                #leg = ax.legend()
+                print(histogram["DYJets_inc_MLM"].axes())
+                r1 = hist.plotratio(num = histogram["DYJets_inc_MLM"].project(obs_axis),
+                                    denom = histogram["DYJets_inc_FXFX"].project(obs_axis),
+                                    error_opts={'color': 'c', 'marker': 'o'},
+                                    ax=rax,
+                                    denom_fill_opts={},
+                                    guide_opts={},
+                                    unc='num',
+                                    label='MLM/FXFX'
+                                )
+                
+                hist.plotratio(num = histogram["DYJets_inc_MLM"].project(obs_axis),
+                               denom = histogram["DYJets_inc_MinNLO"].project(obs_axis),
+                               error_opts={'color': 'brown', 'marker': 'v'},
+                               ax=rax,
+                               clear = False,
+                               label='MLM/MinNLO',
+                               unc='num'
+                           )
+
+                hist.plotratio(num = histogram["DYJets_inc_FXFX"].project(obs_axis),
+                               denom = histogram["DYJets_inc_MinNLO"].project(obs_axis),
+                               error_opts={'color': 'm', 'marker': '>'},
+                               ax=rax,
+                               clear = False,
+                               label='FXFX/MinNLO',
+                               unc='num'
+                           )
+                legrx = rax.legend(loc="upper center", ncol=3)
+
+                rax.set_ylabel('Ratios')
+                rax.set_ylim(0.6,1.6)
+                
+
+            else:
+                hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
+                plt.gca().autoscale()
+
 
         elif 'ds_scaled' in axes:
             fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
@@ -302,9 +348,9 @@ def plot(histograms, outdir, fromPickles=False):
     #fracOfNegWeiPlot(histograms, outdir, "2016")
     #fracOfNegWeiPlot(histograms, outdir, "2017")
 
-def plotFromPickles(inputfile, outdir):
+def plotFromPickles(inputfile, outdir, proc_type):
     hists = pkl.load(open(inputfile,'rb'))
-    plot(hists, outdir, True)
+    plot(hists, outdir, proc_type, fromPickles=False)
 
 def retry_handler(exception, task_record):
     from parsl.executors.high_throughput.interchange import ManagerLost
@@ -354,6 +400,8 @@ def main():
         #p2017_DY1_250_400 = ntuples_location + "/RunIIFall17NanoAODv7/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/"
         #p2017_DY2_250_400 = ntuples_location + "/RunIIFall17NanoAODv7/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/"
 
+        ntuples_location = "/net/data_cms/institut_3a/NanoAOD/"
+        p2016_DYn_250_400 = ntuples_location + "Test_ZH_HToCC_ZToNuNu_AK15"
         file_list = {
             #'2016_DYnJ' :  si.getRootFilesFromPath(p2016_DYn_100_250, opt.numberOfFiles),
             #'2017_DY1J' :  si.getRootFilesFromPath(p2017_DY1_150_250, opt.numberOfFiles),
@@ -382,7 +430,7 @@ def main():
 
 
     if opt.pkl!=None:
-        plotFromPickles(opt.pkl, opt.outdir)
+        plotFromPickles(opt.pkl, opt.outdir, opt.proc_type)
     else:
         if opt.executor=="dask":
             #from dask_jobqueue.htcondor import HTCondorCluster
@@ -481,13 +529,13 @@ def main():
                                               processor_instance = Processor(opt.proc_type, verblvl=opt.debug),
                                               #executor = processor.iterative_executor,
                                               executor = processor.futures_executor,
-                                              executor_args = {'schema': NanoGENSchema, "workers":8}
+                                              executor_args = {'schema': NanoAODSchema, "workers":8}
             )
+            
 
 
 
-
-        plot(output, opt.outdir)
+        plot(output, opt.outdir, opt.proc_type)
 
 
         for key, value in output['cutflow'].items():

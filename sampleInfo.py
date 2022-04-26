@@ -31,8 +31,6 @@ def getRootFilesFromPath(d, lim=None):
         siteIP = ""
         pathToFiles = d
         allfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root")]
-        #rootfiles = [path.join(d, f) for i,f in enumerate(listdir(d)) if f.endswith(".root") and (lim==None or i<lim)]
-        #rootfiles
 
     rootfiles = []
     for file_or_dir in allfiles:
@@ -47,8 +45,8 @@ def getRootFilesFromPath(d, lim=None):
             file_or_dir=file_or_dir+'/'
             rootfiles.extend(getRootFilesFromPath(file_or_dir, lim-len(rootfiles)))
 
-    #print("Input path:", d)
-    #print("List of root files to be processed:\n",rootfiles)
+    print("Input path:", d)
+    print("List of root files to be processed:\n",rootfiles)
 
     return rootfiles
 
