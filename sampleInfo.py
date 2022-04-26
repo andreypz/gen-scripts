@@ -19,6 +19,10 @@ xs_250_400 = {
     "2017_DY2J": 2.71,
 }
 
+xs_UL = {"DYJets_inc_MLM": 1.6*5.35e+03,
+         "DYJets_inc_FXFX": 6.43e+03,
+         "DYJets_inc_MinNLO": 1.976e+03}
+
 def getRootFilesFromPath(d, lim=None):
     import subprocess
     if "xrootd" in d:

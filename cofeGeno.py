@@ -201,10 +201,7 @@ class Processor(processor.ProcessorABC):
                                                                               })
         elif self.proc_type=="ul":
 
-            xs = {"DYJets_inc_MLM": 1.6*5.35e+03,
-                  "DYJets_inc_FXFX": 6.43e+03,
-                  "DYJets_inc_MinNLO": 1.976e+03}
-
+            xs = si.xs_UL
             weights = {"DYJets_inc_MLM":    lumi*xs['DYJets_inc_MLM']/accumulator['sumw']['DYJets_inc_MLM'],
                        "DYJets_inc_FXFX":   lumi*xs['DYJets_inc_FXFX']/accumulator['sumw']['DYJets_inc_FXFX'],
                        "DYJets_inc_MinNLO": lumi*xs['DYJets_inc_MinNLO']/accumulator['sumw']['DYJets_inc_MinNLO']}
