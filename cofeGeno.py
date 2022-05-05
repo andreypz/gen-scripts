@@ -9,9 +9,8 @@ import coffea.processor as processor
 import awkward as ak
 from coffea.nanoevents import NanoEventsFactory
 from functools import partial
-from coffea.nanoevents import NanoAODSchema
-
-#from Coffea_NanoGEN_schema import NanoGENSchema
+#from coffea.nanoevents import NanoAODSchema
+from Coffea_NanoGEN_schema import NanoGENSchema
 import sampleInfo as si
 
 def isClean(obj_A, obj_B, drmin=0.4):
@@ -60,6 +59,7 @@ class Processor(processor.ProcessorABC):
 
         dataset = events.metadata["dataset"]
         LHE_Vpt = events.LHE['Vpt']
+        #LHE_Njets = events.LHE['LHE_Njets'] # Does not exist in NanoV2
         #print(LHE_Vpt)
         # We can define a new key for cutflow (in this case 'all events').
         # Then we can put values into it. We need += because it's per-chunk (demonstrated below)
@@ -67,35 +67,34 @@ class Processor(processor.ProcessorABC):
         output['cutflow'][dataset]['number_of_chunks'] += 1
 
         particles = events.GenPart
-        #particles = events.LHEPart
-        leptons = particles[ (np.abs(particles.pdgId) == 13) & (particles.status == 1) & (np.abs(particles.eta)<2.5) ]
-        #leptons = particles[ ((np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) ) &
-        #                     (particles.status == 1) & (particles.pt>15) & (np.abs(particles.eta)<2.5) ]
-
+        #leptons = particles[ (np.abs(particles.pdgId) == 13) & (particles.status == 1) & (np.abs(particles.eta)<2.5) ]
+        leptons = particles[ ((np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) ) & 
+                             (particles.status == 1) & (np.abs(particles.eta)<2.5) & (particles.pt>20) ]
+                
         genjets = events.GenJet
         jets25 = genjets[ (np.abs(genjets.eta) < 2.5)  &  (genjets.pt > 25) ]
 
-        #jets25  = particles[ ( (np.abs(particles.pdgId) == 1) | (np.abs(particles.pdgId) == 2) | (np.abs(particles.pdgId) == 3 ) |
-        #                       (np.abs(particles.pdgId) == 4) | (np.abs(particles.pdgId) == 5) | (np.abs(particles.pdgId) == 21 ) ) &
-        #                     (particles.status==1) & (particles.pt > 25) ]
-
-
-
-        weight_nosel = events.genWeight
-
-        output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
+        LHEjets  = events.LHEPart[ ( (np.abs(particles.pdgId) == 1) | (np.abs(particles.pdgId) == 2) | (np.abs(particles.pdgId) == 3 ) |
+                                     (np.abs(particles.pdgId) == 4) | (np.abs(particles.pdgId) == 5) | (np.abs(particles.pdgId) == 21 ) ) &
+                                   (particles.status==1) ]
+        LHE_Njets = ak.num(LHEjets)
+        
 
         if dataset in ['DYJets_inc_FXFX']:
-            output["sumw"][dataset] += np.sum(weight_nosel)
+            weight_nosel = events.genWeight
         else:
-            output["sumw"][dataset] += np.sum(np.sign(weight_nosel))
+            weight_nosel= np.sign(events.genWeight)
+
         if self.verblvl>0:
             print("\n",dataset, "wei:", weight_nosel)
 
+        output["sumw"][dataset] += np.sum(weight_nosel)
+
+        output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
+
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
 
-
-        output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons))
+        output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons), weight=weight_nosel)
 
 
         dileptons = ak.combinations(leptons, 2, fields=['i0', 'i1'])
@@ -125,9 +124,10 @@ class Processor(processor.ProcessorABC):
         good_jets = jets25[j_isclean]
         two_jets = (ak.num(good_jets) >= 2)
 
-        output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets))
+        output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets), weight=weight_nosel)
 
-        full_selection = two_lep & two_jets & LHE_vpt_cut
+        LHE_Njets_cut = (LHE_Njets==0)
+        full_selection = two_lep & two_jets & LHE_vpt_cut & LHE_Njets_cut
         #full_selection = two_lep & two_jets & Vpt_cut
         #full_selection = two_lep & two_jets & LHE_vpt_cut & vmass_cut
         #full_selection = two_lep & two_jets & vpt_cut & vmass_cut
@@ -180,6 +180,7 @@ class Processor(processor.ProcessorABC):
 
         print(accumulator['sumw'])
 
+        group_axis = hist.Cat('ds_scaled', 'ds_scaled')
         if self.proc_type=="pre":
             #xs = si.xs_150_250
             xs = si.xs_250_400
@@ -191,25 +192,29 @@ class Processor(processor.ProcessorABC):
                     }
             print(weights)
 
-            scaled = hist.Cat('ds_scaled', 'ds_scaled')
             for key in accumulator:
                 if key not in ['cutflow','sumw']:
                     accumulator[key].scale(weights, axis='dataset')
 
-                    accumulator[key] = accumulator[key].group('dataset', scaled, {'2016_DY 1+2j': ['2016_DYnJ'],
-                                                                                  '2017_DY 1+2j': ['2017_DY1J', '2017_DY2J'],
-                                                                              })
+                    accumulator[key] = accumulator[key].group('dataset', group_axis, {'2016_DY 1+2j': ['2016_DYnJ'],
+                                                                                      '2017_DY 1+2j': ['2017_DY1J', '2017_DY2J'],
+                                                                                  })
         elif self.proc_type=="ul":
 
             xs = si.xs_UL
             weights = {"DYJets_inc_MLM":    lumi*xs['DYJets_inc_MLM']/accumulator['sumw']['DYJets_inc_MLM'],
                        "DYJets_inc_FXFX":   lumi*xs['DYJets_inc_FXFX']/accumulator['sumw']['DYJets_inc_FXFX'],
-                       "DYJets_inc_MinNLO": lumi*xs['DYJets_inc_MinNLO']/accumulator['sumw']['DYJets_inc_MinNLO']}
+                       "DYJets_inc_MinNLO_Mu": lumi*xs['DYJets_inc_MinNLO_Mu']/accumulator['sumw']['DYJets_inc_MinNLO_Mu'],
+                       "DYJets_inc_MinNLO_El": lumi*xs['DYJets_inc_MinNLO_El']/accumulator['sumw']['DYJets_inc_MinNLO_El']}
 
             for key in accumulator:
                 if key not in ['cutflow','sumw']:
                     accumulator[key].scale(weights, axis='dataset')
-
+                    accumulator[key] = accumulator[key].group('dataset', group_axis, {'DYJets_inc_MLM': ['DYJets_inc_MLM'],
+                                                                                      'DYJets_inc_FXFX': ['DYJets_inc_FXFX'],
+                                                                                      'DYJets_inc_MinNLO': ['DYJets_inc_MinNLO_Mu','DYJets_inc_MinNLO_El']
+                                                                                  })
+                    
         return accumulator
 
 
@@ -267,18 +272,17 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
         #print(histogram.axes())
         #print(list(map(lambda x:x.name, histogram.axes() )))
         axes = list(map(lambda x:x.name, histogram.axes() ))
-        if 'dataset' in axes:
-
+        if 'ds_scaled' in axes:
             if proc_type=="ul":
                 print("Plotting for UL", "axis = ", obs_axis)
                 fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
                                               gridspec_kw={"height_ratios": (2, 1)},sharex=True)
                 fig.subplots_adjust(hspace=.07)
                 
-                hist.plot1d(histogram, overlay='dataset', ax=ax, line_opts={}, overflow='none')
+                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
                 ax.set_ylim(0, None)
                 
-                #leg = ax.legend()
+                leg = ax.legend()
                 print(histogram["DYJets_inc_MLM"].axes())
                 r1 = hist.plotratio(num = histogram["DYJets_inc_MLM"].project(obs_axis),
                                     denom = histogram["DYJets_inc_FXFX"].project(obs_axis),
@@ -314,31 +318,35 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                 
 
             else:
-                hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
-                plt.gca().autoscale()
-
-
-        elif 'ds_scaled' in axes:
-            fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
-                                          gridspec_kw={"height_ratios": (3, 1)},sharex=True)
-            fig.subplots_adjust(hspace=.07)
-
-            hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
-            ax.set_ylim(0, None)
-
-            leg = ax.legend()
-            print(histogram["2016_DY 1+2j"].axes())
-            hist.plotratio(num = histogram["2017_DY 1+2j"].project(obs_axis),
-                           denom = histogram["2016_DY 1+2j"].project(obs_axis),
-                           error_opts={'color': 'k', 'marker': '.'},
-                           ax=rax,
-                           denom_fill_opts={},
-                           guide_opts={},
-                           unc='num'
-                       )
-
-            rax.set_ylabel('2017/2016 Ratio')
-            rax.set_ylim(0.5,1.5)
+                
+                #hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
+                #plt.gca().autoscale()
+                
+                
+                fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
+                                              gridspec_kw={"height_ratios": (3, 1)},sharex=True)
+                fig.subplots_adjust(hspace=.07)
+                
+                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
+                ax.set_ylim(0, None)
+                
+                leg = ax.legend()
+                print(histogram["2016_DY 1+2j"].axes())
+                hist.plotratio(num = histogram["2017_DY 1+2j"].project(obs_axis),
+                               denom = histogram["2016_DY 1+2j"].project(obs_axis),
+                               error_opts={'color': 'k', 'marker': '.'},
+                               ax=rax,
+                               denom_fill_opts={},
+                               guide_opts={},
+                               unc='num'
+                           )
+                
+                rax.set_ylabel('2017/2016 Ratio')
+                rax.set_ylim(0.5,1.5)
+                
+        else:
+            print("axes= ", axes)
+            print("This should not happen. I'm not sure what to do.")
 
         plt.gcf().savefig(f"{outdir}/{observable}.png", bbox_inches='tight')
 
@@ -412,14 +420,15 @@ def main():
             #'2016_DYnJ' :  [p2016_DYn_250_400+"/Tree_1.root"],
         }
     elif opt.proc_type=="ul":
-        pkl_file = "./VJetsPickle.pkl"
+        pkl_file = "./VJetsPickle_v2.pkl"
         xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
         sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
 
         file_list = {
             'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_FXFX': si.makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
-            'DYJets_inc_MinNLO': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_inc_MinNLO_Mu': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_Mu", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_inc_MinNLO_El': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_El", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
 
             #'DYJets_inc_MLM': ['/user/andreypz/ZH_HCC_ZLL_NanoV6_2017_7C7E.root']
         }
@@ -444,7 +453,7 @@ def main():
                                               treename = 'Events',
                                               processor_instance = Processor(opt.proc_type, verblvl=opt.debug),
                                               executor = processor.dask_executor,
-                                              executor_args = {'client': client, 'schema': NanoGENSchema}
+                                              executor_args = {'client': client, 'schema': NanoAODSchema}
             )
 
         elif  opt.executor=="parsl":
@@ -483,7 +492,7 @@ def main():
             #from parsl.app.app import python_app, bash_app
             #from parsl.configs.local_threads import config
             #parsl.load(config)
-
+            
             htex_config = Config(
                 executors=[
                     HighThroughputExecutor(
@@ -492,8 +501,9 @@ def main():
                         max_workers=1,
                         provider=CondorProvider(
                             nodes_per_block=1,
-                            init_blocks=10,
-                            max_blocks=40,
+                            init_blocks=20,
+                            max_blocks=200,
+                            scheduler_options='should_transfer_files = YES\n transfer_output_files = ""\n',
                             worker_init="\n".join(env_extra + condor_extra),
                             walltime="00:50:00",
                         ),
@@ -503,12 +513,7 @@ def main():
                 retry_handler=retry_handler,
             )
             dfk = parsl.load(htex_config)
-            '''
-            import coffea.processor.parsl.condor_config as cconf
-            conf = cconf.condor_config()
-            dfk = parsl.load(conf)
-            '''
-            
+
             output = processor.run_uproot_job(file_list,
                                               treename = 'Events',
                                               processor_instance = Processor(opt.proc_type, verblvl=opt.debug),
@@ -526,7 +531,7 @@ def main():
                                               processor_instance = Processor(opt.proc_type, verblvl=opt.debug),
                                               #executor = processor.iterative_executor,
                                               executor = processor.futures_executor,
-                                              executor_args = {'schema': NanoAODSchema, "workers":8}
+                                              executor_args = {'schema': NanoGENSchema, "workers":10}
             )
             
 

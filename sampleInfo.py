@@ -21,7 +21,8 @@ xs_250_400 = {
 
 xs_UL = {"DYJets_inc_MLM": 1.6*5.35e+03,
          "DYJets_inc_FXFX": 6.43e+03,
-         "DYJets_inc_MinNLO": 1.976e+03}
+         "DYJets_inc_MinNLO_Mu": 1.976e+03,
+         "DYJets_inc_MinNLO_El": 1.976e+03}
 
 def getRootFilesFromPath(d, lim=None):
     import subprocess
@@ -186,7 +187,7 @@ if __name__ == "__main__":
     pkl_file = "./VJetsPickle.pkl"
     #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
     #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
-    file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
+    file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_Mu", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
     print(file_list)
 
     """
