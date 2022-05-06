@@ -74,9 +74,10 @@ class Processor(processor.ProcessorABC):
         genjets = events.GenJet
         jets25 = genjets[ (np.abs(genjets.eta) < 2.5)  &  (genjets.pt > 25) ]
 
-        LHEjets  = events.LHEPart[ ( (np.abs(particles.pdgId) == 1) | (np.abs(particles.pdgId) == 2) | (np.abs(particles.pdgId) == 3 ) |
-                                     (np.abs(particles.pdgId) == 4) | (np.abs(particles.pdgId) == 5) | (np.abs(particles.pdgId) == 21 ) ) &
-                                   (particles.status==1) ]
+        LHEP = events.LHEPart
+        LHEjets  = LHEP[ ( (np.abs(LHEP.pdgId) == 1) | (np.abs(LHEP.pdgId) == 2) | (np.abs(LHEP.pdgId) == 3 ) |
+                           (np.abs(LHEP.pdgId) == 4) | (np.abs(LHEP.pdgId) == 5) | (np.abs(LHEP.pdgId) == 21 ) ) &
+                         (LHEP.status==1) ]
         LHE_Njets = ak.num(LHEjets)
         
 
@@ -126,7 +127,7 @@ class Processor(processor.ProcessorABC):
 
         output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets), weight=weight_nosel)
 
-        LHE_Njets_cut = (LHE_Njets==0)
+        LHE_Njets_cut = (LHE_Njets==2)
         full_selection = two_lep & two_jets & LHE_vpt_cut & LHE_Njets_cut
         #full_selection = two_lep & two_jets & Vpt_cut
         #full_selection = two_lep & two_jets & LHE_vpt_cut & vmass_cut
@@ -502,7 +503,7 @@ def main():
                         provider=CondorProvider(
                             nodes_per_block=1,
                             init_blocks=20,
-                            max_blocks=200,
+                            max_blocks=400,
                             scheduler_options='should_transfer_files = YES\n transfer_output_files = ""\n',
                             worker_init="\n".join(env_extra + condor_extra),
                             walltime="00:50:00",
