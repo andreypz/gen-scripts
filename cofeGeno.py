@@ -127,7 +127,7 @@ class Processor(processor.ProcessorABC):
 
         output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets), weight=weight_nosel)
 
-        LHE_Njets_cut = (LHE_Njets==2)
+        LHE_Njets_cut = (LHE_Njets==4)
         full_selection = two_lep & two_jets & LHE_vpt_cut & LHE_Njets_cut
         #full_selection = two_lep & two_jets & Vpt_cut
         #full_selection = two_lep & two_jets & LHE_vpt_cut & vmass_cut
