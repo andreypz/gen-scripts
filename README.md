@@ -20,6 +20,7 @@ Run the LHE analyzer:
 ```
 ./lhePlot.py /PathToLHE/cmsgrid_final.lhe -o outDir
 ```
+(this script originally copied from https://github.com/AndreasAlbert/mg5tut_apr21_plots )
 
 Run NanoGen analyzer:
 ```
