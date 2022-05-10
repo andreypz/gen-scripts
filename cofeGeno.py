@@ -127,7 +127,7 @@ class Processor(processor.ProcessorABC):
 
         output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets), weight=weight_nosel)
 
-        LHE_Njets_cut = (LHE_Njets==4)
+        LHE_Njets_cut = (LHE_Njets>=0)
         full_selection = two_lep & two_jets & LHE_vpt_cut & LHE_Njets_cut
         #full_selection = two_lep & two_jets & Vpt_cut
         #full_selection = two_lep & two_jets & LHE_vpt_cut & vmass_cut
@@ -191,8 +191,9 @@ class Processor(processor.ProcessorABC):
                         '2017_DY1J': lumi*xs['2017_DY1J']/accumulator['sumw']['2017_DY1J'],
                         '2017_DY2J': lumi*xs['2017_DY2J']/accumulator['sumw']['2017_DY2J'],
                     }
-            print(weights)
-
+            if self.verblvl>0:
+                print("weights = ", weights)
+                
             for key in accumulator:
                 if key not in ['cutflow','sumw']:
                     accumulator[key].scale(weights, axis='dataset')
@@ -201,19 +202,18 @@ class Processor(processor.ProcessorABC):
                                                                                       '2017_DY 1+2j': ['2017_DY1J', '2017_DY2J'],
                                                                                   })
         elif self.proc_type=="ul":
-
-            xs = si.xs_UL
-            weights = {"DYJets_inc_MLM":    lumi*xs['DYJets_inc_MLM']/accumulator['sumw']['DYJets_inc_MLM'],
-                       "DYJets_inc_FXFX":   lumi*xs['DYJets_inc_FXFX']/accumulator['sumw']['DYJets_inc_FXFX'],
-                       "DYJets_inc_MinNLO_Mu": lumi*xs['DYJets_inc_MinNLO_Mu']/accumulator['sumw']['DYJets_inc_MinNLO_Mu'],
-                       "DYJets_inc_MinNLO_El": lumi*xs['DYJets_inc_MinNLO_El']/accumulator['sumw']['DYJets_inc_MinNLO_El']}
-
+            SI = si.ReadSampleInfoFile('mc_vjets_samples.info')            
+            weights = {sname : lumi*SI[sname]['xsec']*SI[sname]['kfac']/accumulator['sumw'][sname] for sname in SI if sname in accumulator['sumw'].keys()}
+            if self.verblvl>0:
+                print("weights = ", weights)
+            
             for key in accumulator:
                 if key not in ['cutflow','sumw']:
                     accumulator[key].scale(weights, axis='dataset')
-                    accumulator[key] = accumulator[key].group('dataset', group_axis, {'DYJets_inc_MLM': ['DYJets_inc_MLM'],
+                    accumulator[key] = accumulator[key].group('dataset', group_axis, {'DYJets_inc_MLM':  ['DYJets_inc_MLM'],
                                                                                       'DYJets_inc_FXFX': ['DYJets_inc_FXFX'],
-                                                                                      'DYJets_inc_MinNLO': ['DYJets_inc_MinNLO_Mu','DYJets_inc_MinNLO_El']
+                                                                                      'DYJets_inc_MinNLO': ['DYJets_inc_MinNLO_Mu','DYJets_inc_MinNLO_El'],
+                                                                                      'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'] 
                                                                                   })
                     
         return accumulator
@@ -284,9 +284,15 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                 ax.set_ylim(0, None)
                 
                 leg = ax.legend()
+
+                samp1='DYJets_inc_MLM'
+                #samp2='DYJets_NJ_FXFX'
+                samp2='DYJets_inc_FXFX'
+                samp3='DYJets_inc_MinNLO'
+
                 print(histogram["DYJets_inc_MLM"].axes())
-                r1 = hist.plotratio(num = histogram["DYJets_inc_MLM"].project(obs_axis),
-                                    denom = histogram["DYJets_inc_FXFX"].project(obs_axis),
+                r1 = hist.plotratio(num = histogram[samp1].project(obs_axis),
+                                    denom = histogram[samp2].project(obs_axis),
                                     error_opts={'color': 'c', 'marker': 'o'},
                                     ax=rax,
                                     denom_fill_opts={},
@@ -295,8 +301,8 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                     label='MLM/FXFX'
                                 )
                 
-                hist.plotratio(num = histogram["DYJets_inc_MLM"].project(obs_axis),
-                               denom = histogram["DYJets_inc_MinNLO"].project(obs_axis),
+                hist.plotratio(num = histogram[samp1].project(obs_axis),
+                               denom = histogram[samp3].project(obs_axis),
                                error_opts={'color': 'brown', 'marker': 'v'},
                                ax=rax,
                                clear = False,
@@ -304,8 +310,8 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                unc='num'
                            )
 
-                hist.plotratio(num = histogram["DYJets_inc_FXFX"].project(obs_axis),
-                               denom = histogram["DYJets_inc_MinNLO"].project(obs_axis),
+                hist.plotratio(num = histogram[samp2].project(obs_axis),
+                               denom = histogram[samp3].project(obs_axis),
                                error_opts={'color': 'm', 'marker': '>'},
                                ax=rax,
                                clear = False,
@@ -430,7 +436,10 @@ def main():
             'DYJets_inc_FXFX': si.makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_MinNLO_Mu': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_Mu", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_MinNLO_El': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_El", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
-
+            
+            'DYJets_0J': si.makeListOfInputRootFilesForProcess("DYJets_0J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_1J': si.makeListOfInputRootFilesForProcess("DYJets_1J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_2J': si.makeListOfInputRootFilesForProcess("DYJets_2J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             #'DYJets_inc_MLM': ['/user/andreypz/ZH_HCC_ZLL_NanoV6_2017_7C7E.root']
         }
         
