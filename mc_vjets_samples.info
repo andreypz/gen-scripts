@@ -1,7 +1,29 @@
-name=DYJets_inc_FXFX dir=/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8  xsec=6.43e+03 kfac=1.0
-name=DYJets_inc_MLM dir=/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8    xsec=5.35e+03 kfac=1.6
-name=DYJets_inc_MinNLO_Mu dir=/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1.976e+03  kfac=1.0
-name=DYJets_inc_MinNLO_El dir=/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1.976e+03  kfac=1.0
-name=DYJets_0J dir=/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=5.127e+03  kfac=1.0
-name=DYJets_1J dir=/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=9.582e+02  kfac=1.0
-name=DYJets_2J dir=/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=3.583e+02  kfac=1.0
+name=DYJets_inc_FXFX dir=/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8  xsec=6430 kfac=1.0
+name=DYJets_inc_MLM dir=/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8    xsec=5350 kfac=1.6
+name=DYJets_inc_MinNLO_Mu dir=/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1976  kfac=1.0
+name=DYJets_inc_MinNLO_El dir=/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1976  kfac=1.0
+#name=DYJets_0J dir=/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=5127  kfac=1.0
+#name=DYJets_1J dir=/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=958.2  kfac=1.0
+#name=DYJets_2J dir=/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=358.3  kfac=1.0
+
+#name=DYJets_Pt50To100  dir=/DYJetsToLL_LHEFilterPtZ-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=399.2 kfac=1.0
+#name=DYJets_Pt100To250 dir=/DYJetsToLL_LHEFilterPtZ-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=96.56 kfac=1.0
+#name=DYJets_Pt250To400 dir=/DYJetsToLL_LHEFilterPtZ-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=3.727 kfac=1.0
+#name=DYJets_Pt400To650 dir=/DYJetsToLL_LHEFilterPtZ-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=0.5029 kfac=1.0
+#name=DYJets_Pt6500ToInf dir=/DYJetsToLL_LHEFilterPtZ-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=0.04782 kfac=1.0
+
+###name=DYJets_HT70to100  dir=/DYJetsToLL_M-50_HT-70to100_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8    xsec=139.2 kfac=1.6
+#name=DYJets_HT100to200  dir=/DYJetsToLL_M-50_HT-100to200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8    xsec=140.9 kfac=1.6
+#name=DYJets_HT200to400  dir=/DYJetsToLL_M-50_HT-200to400_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8   xsec=38.37 kfac=1.6
+#name=DYJets_HT400to600  dir=/DYJetsToLL_M-50_HT-400to600_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8   xsec=5.205 kfac=1.6
+#name=DYJets_HT600to800  dir=/DYJetsToLL_M-50_HT-600to800_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8   xsec=1.281 kfac=1.6
+#name=DYJets_HT800to1200  dir=/DYJetsToLL_M-50_HT-800to1200_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8   xsec=0.5705 kfac=1.6
+#name=DYJets_HT1200to2500  dir=/DYJetsToLL_M-50_HT-1200to2500_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8   xsec=0.1328 kfac=1.6
+#name=DYJets_HT2500toInf  dir=/DYJetsToLL_M-50_HT-2500toInf_TuneCP5_PSweights_13TeV-madgraphMLM-pythia8   xsec=2.985e-03 kfac=1.6
+
+
+###name=xDYJets_Pt50To100  dir=/DYJetsToLL_Pt-50To100_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=399.2  kfac=1.0
+###name=xDYJets_Pt100To250 dir=/DYJetsToLL_Pt-100To250_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=96.56  kfac=1.0
+###name=xDYJets_Pt250To400 dir=/DYJetsToLL_Pt-250To400_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=3.727  kfac=1.0
+###name=xDYJets_Pt400To650 dir=/DYJetsToLL_Pt-400To650_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=0.5029  kfac=1.0
+###name=xDYJets_Pt6500ToInf dir=/DYJetsToLL_Pt-650ToInf_MatchEWPDG20_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=0.04782  kfac=1.0

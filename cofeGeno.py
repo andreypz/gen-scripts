@@ -27,6 +27,7 @@ class Processor(processor.ProcessorABC):
 
         axis = { "dataset": hist.Cat("dataset", ""),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "LHE V PT [GeV]", 100, 0, 400),
+                 "LHE_HT":  hist.Bin("LHE_HT", "LHE HT [GeV]", 100, 0, 1000),
                  'wei'         : hist.Bin("wei", "wei", 50, -10, 10),
                  'nlep'        : hist.Bin("nlep", "nlep", 12, 0, 6),
                  'lep_eta'     : hist.Bin("lep_eta", "lep_eta", 50, -5, 5),
@@ -59,6 +60,7 @@ class Processor(processor.ProcessorABC):
 
         dataset = events.metadata["dataset"]
         LHE_Vpt = events.LHE['Vpt']
+        LHE_HT = events.LHE['HT']
         #LHE_Njets = events.LHE['LHE_Njets'] # Does not exist in NanoV2
         #print(LHE_Vpt)
         # We can define a new key for cutflow (in this case 'all events').
@@ -92,6 +94,7 @@ class Processor(processor.ProcessorABC):
         output["sumw"][dataset] += np.sum(weight_nosel)
 
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
+        output['LHE_HT'].fill(dataset=dataset, LHE_HT=LHE_HT, weight=weight_nosel)
 
         output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
 
@@ -202,8 +205,8 @@ class Processor(processor.ProcessorABC):
                                                                                       '2017_DY 1+2j': ['2017_DY1J', '2017_DY2J'],
                                                                                   })
         elif self.proc_type=="ul":
-            SI = si.ReadSampleInfoFile('mc_vjets_samples.info')            
-            weights = {sname : lumi*SI[sname]['xsec']*SI[sname]['kfac']/accumulator['sumw'][sname] for sname in SI if sname in accumulator['sumw'].keys()}
+            sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')            
+            weights = {sname : lumi*sampleInfo[sname]['xsec']*sampleInfo[sname]['kfac']/accumulator['sumw'][sname] for sname in accumulator['sumw'].keys()}
             if self.verblvl>0:
                 print("weights = ", weights)
             
@@ -213,7 +216,10 @@ class Processor(processor.ProcessorABC):
                     accumulator[key] = accumulator[key].group('dataset', group_axis, {'DYJets_inc_MLM':  ['DYJets_inc_MLM'],
                                                                                       'DYJets_inc_FXFX': ['DYJets_inc_FXFX'],
                                                                                       'DYJets_inc_MinNLO': ['DYJets_inc_MinNLO_Mu','DYJets_inc_MinNLO_El'],
-                                                                                      'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'] 
+                                                                                      'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'],
+                                                                                      'DYJets_PT_FXFX':  ['DYJets_Pt50To100','DYJets_Pt100To250','DYJets_Pt250To400','DYJets_Pt400To650','DYJets_Pt650ToInf'],
+                                                                                      'xDYJets_PT_FXFX':  ['xDYJets_Pt50To100','xDYJets_Pt100To250','xDYJets_Pt250To400','xDYJets_Pt400To650','xDYJets_Pt650ToInf'],
+                                                                                      'DYJets_HT_MLM': ['DYJets_HT70to100','DYJets_HT100to200','DYJets_HT200to400','DYJets_HT400to600','DYJets_HT600to800','DYJets_HT800to1200','DYJets_HT1200to2500','DYJets_HT2500toInf',]
                                                                                   })
                     
         return accumulator
@@ -282,7 +288,10 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                 
                 hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
                 ax.set_ylim(0, None)
-                
+                if obs_axis in ['LHE_HT']:
+                    ax.set_ylim(1, None)
+                    ax.set_yscale('log')
+
                 leg = ax.legend()
 
                 samp1='DYJets_inc_MLM'
@@ -427,10 +436,15 @@ def main():
             #'2016_DYnJ' :  [p2016_DYn_250_400+"/Tree_1.root"],
         }
     elif opt.proc_type=="ul":
-        pkl_file = "./VJetsPickle_v2.pkl"
+        pkl_file = "./VJetsPickle_v3.pkl"
         xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
+        #xroot = 'root://xrootd-cms.infn.it/'
         sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
 
+        file_list = {
+            sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=True) for sname in sampleInfo
+        }
+        '''
         file_list = {
             'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_FXFX': si.makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
@@ -442,8 +456,8 @@ def main():
             'DYJets_2J': si.makeListOfInputRootFilesForProcess("DYJets_2J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             #'DYJets_inc_MLM': ['/user/andreypz/ZH_HCC_ZLL_NanoV6_2017_7C7E.root']
         }
-        
-
+        '''
+        print(file_list.keys())
 
     if opt.pkl!=None:
         plotFromPickles(opt.pkl, opt.outdir, opt.proc_type)
