@@ -289,7 +289,7 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                               gridspec_kw={"height_ratios": (2, 1)},sharex=True)
                 fig.subplots_adjust(hspace=.07)
                 
-                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
+                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C0','C1','C2']}, overflow='none')
                 ax.set_ylim(0, None)
                 if obs_axis in ['LHE_HT']:
                     ax.set_ylim(1, None)
