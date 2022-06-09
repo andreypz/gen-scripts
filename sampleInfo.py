@@ -45,8 +45,8 @@ def getRootFilesFromPath(d, lim=None):
             file_or_dir=file_or_dir+'/'
             rootfiles.extend(getRootFilesFromPath(file_or_dir, lim-len(rootfiles)))
 
-    print("Input path:", d)
-    print("List of root files to be processed:\n",rootfiles)
+    # print("Input path:", d)
+    # print("List of root files to be processed:\n",rootfiles)
 
     return rootfiles
 
@@ -179,10 +179,10 @@ if __name__ == "__main__":
     #xroot = 'root://cms-xrd-global.cern.ch/'
     xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
    
-    pkl_file = "./VJetsPickle.pkl"
+    pkl_file = "./VJetsPickle_v3.pkl"
     #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
     #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
-    file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_Mu", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
+    file_list = makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
     print(file_list)
 
     """

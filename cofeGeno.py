@@ -2,6 +2,7 @@
 
 from os import listdir, makedirs, path, system
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
 import pickle as pkl
 from matplotlib import pyplot as plt
 from coffea import hist
@@ -219,7 +220,9 @@ class Processor(processor.ProcessorABC):
                                                                                       'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'],
                                                                                       'DYJets_PT_FXFX':  ['DYJets_Pt50To100','DYJets_Pt100To250','DYJets_Pt250To400','DYJets_Pt400To650','DYJets_Pt650ToInf'],
                                                                                       'xDYJets_PT_FXFX':  ['xDYJets_Pt50To100','xDYJets_Pt100To250','xDYJets_Pt250To400','xDYJets_Pt400To650','xDYJets_Pt650ToInf'],
-                                                                                      'DYJets_HT_MLM': ['DYJets_HT70to100','DYJets_HT100to200','DYJets_HT200to400','DYJets_HT400to600','DYJets_HT600to800','DYJets_HT800to1200','DYJets_HT1200to2500','DYJets_HT2500toInf',]
+                                                                                      'DYJets_HT_MLM': ['DYJets_HT70to100','DYJets_HT100to200','DYJets_HT200to400','DYJets_HT400to600','DYJets_HT600to800','DYJets_HT800to1200','DYJets_HT1200to2500','DYJets_HT2500toInf'],
+                                                                                      'DYJets_HERWIG':  ['DYJets_HERWIG'],
+
                                                                                   })
                     
         return accumulator
@@ -294,37 +297,39 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
 
                 leg = ax.legend()
 
-                samp1='DYJets_inc_MLM'
-                #samp2='DYJets_NJ_FXFX'
-                samp2='DYJets_inc_FXFX'
-                samp3='DYJets_inc_MinNLO'
+                samp1=['DYJets_inc_MLM','MLM']
+                #samp2=['DYJets_NJ_FXFX','NJ_FXFX']
+                samp2=['DYJets_inc_FXFX','FXFX']
+                #samp3=['DYJets_inc_MinNLO','MinNLO']
+                samp3=['DYJets_HERWIG','HERWIG']
 
-                print(histogram["DYJets_inc_MLM"].axes())
-                r1 = hist.plotratio(num = histogram[samp1].project(obs_axis),
-                                    denom = histogram[samp2].project(obs_axis),
+                #print(histogram["DYJets_inc_MLM"].axes())
+
+                r1 = hist.plotratio(num = histogram[samp1[0]].project(obs_axis),
+                                    denom = histogram[samp2[0]].project(obs_axis),
                                     error_opts={'color': 'c', 'marker': 'o'},
                                     ax=rax,
                                     denom_fill_opts={},
                                     guide_opts={},
                                     unc='num',
-                                    label='MLM/FXFX'
+                                    label=samp1[1]+"/"+samp2[1]
                                 )
                 
-                hist.plotratio(num = histogram[samp1].project(obs_axis),
-                               denom = histogram[samp3].project(obs_axis),
+                hist.plotratio(num = histogram[samp1[0]].project(obs_axis),
+                               denom = histogram[samp3[0]].project(obs_axis),
                                error_opts={'color': 'brown', 'marker': 'v'},
                                ax=rax,
                                clear = False,
-                               label='MLM/MinNLO',
+                               label=samp1[1]+"/"+samp3[1],
                                unc='num'
                            )
 
-                hist.plotratio(num = histogram[samp2].project(obs_axis),
-                               denom = histogram[samp3].project(obs_axis),
+                hist.plotratio(num = histogram[samp2[0]].project(obs_axis),
+                               denom = histogram[samp3[0]].project(obs_axis),
                                error_opts={'color': 'm', 'marker': '>'},
                                ax=rax,
                                clear = False,
-                               label='FXFX/MinNLO',
+                               label=samp2[1]+"/"+samp3[1],
                                unc='num'
                            )
                 legrx = rax.legend(loc="upper center", ncol=3)
@@ -421,8 +426,8 @@ def main():
         #p2017_DY1_250_400 = ntuples_location + "/RunIIFall17NanoAODv7/DY1JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/"
         #p2017_DY2_250_400 = ntuples_location + "/RunIIFall17NanoAODv7/DY2JetsToLL_M-50_LHEZpT_250-400_TuneCP5_13TeV-amcnloFXFX-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/"
 
-        ntuples_location = "/net/data_cms/institut_3a/NanoAOD/"
-        p2016_DYn_250_400 = ntuples_location + "Test_ZH_HToCC_ZToNuNu_AK15"
+        #ntuples_location = "/net/data_cms/institut_3a/NanoAOD/"
+        #p2016_DYn_250_400 = ntuples_location + "Test_ZH_HToCC_ZToNuNu_AK15"
         file_list = {
             #'2016_DYnJ' :  si.getRootFilesFromPath(p2016_DYn_100_250, opt.numberOfFiles),
             #'2017_DY1J' :  si.getRootFilesFromPath(p2017_DY1_150_250, opt.numberOfFiles),
@@ -435,8 +440,8 @@ def main():
             #'2017_DY2J' :  [p2017_DY2_250_400+"/Tree_1.root"],
             #'2016_DYnJ' :  [p2016_DYn_250_400+"/Tree_1.root"],
         }
-    elif opt.proc_type=="ul":
-        pkl_file = "./VJetsPickle_v3.pkl"
+    elif opt.proc_type=="ul" and opt.pkl==None:
+        pkl_file = "./VJetsPickle_v4.pkl"
         xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
         #xroot = 'root://xrootd-cms.infn.it/'
         sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
@@ -444,6 +449,10 @@ def main():
         file_list = {
             sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=True) for sname in sampleInfo
         }
+        
+        #file_list = {'DYJets_HERWIG': [#'~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN.root',
+        #                               '~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN_inNANOAODGEN.root']}
+        
         '''
         file_list = {
             'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
@@ -501,7 +510,7 @@ def main():
             ]
             condor_extra = [
                 'source ~/work/vjets/conda_setup.sh',
-                'conda activate coffea-env',
+                'conda activate coffea37',
                 'echo LETSGO'
             ]
             

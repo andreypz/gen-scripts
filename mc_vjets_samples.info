@@ -1,7 +1,10 @@
 name=DYJets_inc_FXFX dir=/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8  xsec=6430 kfac=1.0
 name=DYJets_inc_MLM dir=/DYJetsToLL_M-50_TuneCP5_13TeV-madgraphMLM-pythia8    xsec=5350 kfac=1.6
-name=DYJets_inc_MinNLO_Mu dir=/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1976  kfac=1.0
-name=DYJets_inc_MinNLO_El dir=/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1976  kfac=1.0
+#name=DYJets_inc_MinNLO_Mu dir=/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1976  kfac=1.0
+#name=DYJets_inc_MinNLO_El dir=/DYJetsToEE_M-50_massWgtFix_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1976  kfac=1.0
+#name=DYJets_HERWIG dir=/Local xsec=6430  kfac=1.0  # File produced by Kostas
+name=DYJets_HERWIG dir=/DYJetsToLL_M-50_TuneCH3_13TeV-madgraphMLM-herwig7 xsec=3200  kfac=1.0
+
 #name=DYJets_0J dir=/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=5127  kfac=1.0
 #name=DYJets_1J dir=/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=958.2  kfac=1.0
 #name=DYJets_2J dir=/DYJetsToLL_2J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=358.3  kfac=1.0
