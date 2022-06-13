@@ -50,8 +50,8 @@ def getRootFilesFromPath(d, lim=None):
 
     return rootfiles
 
-def getFilesFromDas(ds):
-    allfiles = str(subprocess.check_output(str('/cvmfs/cms.cern.ch/common/dasgoclient -query="file dataset=%s"'%ds.strip()), 
+def getFilesFromDas(ds, site):
+    allfiles = str(subprocess.check_output(str('/cvmfs/cms.cern.ch/common/dasgoclient -query="instance=prod/%s file dataset=%s"'%(site, ds.strip())), 
                                            shell=True), 'utf-8').split("\n")
     #print(ds, allfiles)
     return allfiles
@@ -67,11 +67,16 @@ def makeDasQueryAndPickle(inpfile, pklFileName="./FilesOnDas.pkl"):
                 continue
             sample = line.strip()
             dsname = sample.split("/")[1]
-            print("Getting file list for sample=%s, ds=%s"%(sample,dsname))
-            if dsname in allFiles.keys():
-                allFiles[dsname].extend(getFilesFromDas(sample))
+            Tier = sample.split("/")[3] # NANOAODSIM for regular samples, USER for provate
+            if Tier=="USER":
+                site="phys03"
             else:
-                allFiles[dsname] = getFilesFromDas(sample)
+                site="global"
+            print("Getting file list for sample=%s, ds=%s,  tier=%s,  site=%s"%(sample,dsname,Tier,site))
+            if dsname in allFiles.keys():
+                allFiles[dsname].extend(getFilesFromDas(sample,site))
+            else:
+                allFiles[dsname] = getFilesFromDas(sample,site)
             print("Found %i files"%len(allFiles[dsname]))
     # 
     # print(allFiles)
@@ -156,7 +161,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run das quiries etc')
     parser.add_argument("inputfile")
     parser.add_argument('-o','--output', type=str, default="./FilesOnDas.pkl", help="Directory to output the plots.")
-
     opt = parser.parse_args()
 
     print(opt)

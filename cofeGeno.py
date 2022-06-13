@@ -216,7 +216,8 @@ class Processor(processor.ProcessorABC):
                     accumulator[key].scale(weights, axis='dataset')
                     accumulator[key] = accumulator[key].group('dataset', group_axis, {'DYJets_inc_MLM':  ['DYJets_inc_MLM'],
                                                                                       'DYJets_inc_FXFX': ['DYJets_inc_FXFX'],
-                                                                                      'DYJets_inc_MinNLO': ['DYJets_inc_MinNLO_Mu','DYJets_inc_MinNLO_El'],
+                                                                                      'DYJets_MiNNLO': ['DYJets_inc_MiNNLO_Mu','DYJets_inc_MiNNLO_El'],
+                                                                                      'DYJets_MiNNLO_Supp': ['DYJets_MiNNLO_Mu_Supp'],
                                                                                       'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'],
                                                                                       'DYJets_PT_FXFX':  ['DYJets_Pt50To100','DYJets_Pt100To250','DYJets_Pt250To400','DYJets_Pt400To650','DYJets_Pt650ToInf'],
                                                                                       'xDYJets_PT_FXFX':  ['xDYJets_Pt50To100','xDYJets_Pt100To250','xDYJets_Pt250To400','xDYJets_Pt400To650','xDYJets_Pt650ToInf'],
@@ -289,7 +290,7 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                               gridspec_kw={"height_ratios": (2, 1)},sharex=True)
                 fig.subplots_adjust(hspace=.07)
                 
-                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C0','C1','C2']}, overflow='none')
+                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C2','C0','C1']}, overflow='none')
                 ax.set_ylim(0, None)
                 if obs_axis in ['LHE_HT']:
                     ax.set_ylim(1, None)
@@ -297,11 +298,12 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
 
                 leg = ax.legend()
 
-                samp1=['DYJets_inc_MLM','MLM']
-                #samp2=['DYJets_NJ_FXFX','NJ_FXFX']
-                samp2=['DYJets_inc_FXFX','FXFX']
-                #samp3=['DYJets_inc_MinNLO','MinNLO']
-                samp3=['DYJets_HERWIG','HERWIG']
+                #samp1=['DYJets_inc_MLM','MLM']
+                #samp1=['DYJets_NJ_FXFX','NJ_FXFX']
+                samp1=['DYJets_inc_FXFX','FXFX']
+                samp2=['DYJets_MiNNLO','MiNNLO']
+                samp3=['DYJets_MiNNLO_Supp','MiNNLO_Supp']
+                #samp3=['DYJets_HERWIG','HERWIG']
 
                 #print(histogram["DYJets_inc_MLM"].axes())
 
@@ -457,8 +459,8 @@ def main():
         file_list = {
             'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_FXFX': si.makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
-            'DYJets_inc_MinNLO_Mu': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_Mu", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
-            'DYJets_inc_MinNLO_El': si.makeListOfInputRootFilesForProcess("DYJets_inc_MinNLO_El", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_inc_MiNNLO_Mu': si.makeListOfInputRootFilesForProcess("DYJets_inc_MiNNLO_Mu", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
+            'DYJets_inc_MiNNLO_El': si.makeListOfInputRootFilesForProcess("DYJets_inc_MiNNLO_El", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             
             'DYJets_0J': si.makeListOfInputRootFilesForProcess("DYJets_0J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_1J': si.makeListOfInputRootFilesForProcess("DYJets_1J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
