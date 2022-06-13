@@ -451,7 +451,9 @@ def main():
         file_list = {
             sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=True) for sname in sampleInfo
         }
-        
+
+
+        file_list['DYJets_MiNNLO_Mu_Supp'] = si.makeListOfInputRootFilesForProcess("DYJets_MiNNLO_Mu_Supp", sampleInfo, pkl_file, xroot, lim=-1, checkOpen=True)
         #file_list = {'DYJets_HERWIG': [#'~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN.root',
         #                               '~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN_inNANOAODGEN.root']}
         
