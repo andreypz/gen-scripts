@@ -443,7 +443,7 @@ def main():
             #'2016_DYnJ' :  [p2016_DYn_250_400+"/Tree_1.root"],
         }
     elif opt.proc_type=="ul" and opt.pkl==None:
-        pkl_file = "./VJetsPickle_v4.pkl"
+        pkl_file = "./VJetsPickle.pkl"
         xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
         #xroot = 'root://xrootd-cms.infn.it/'
         sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
@@ -451,9 +451,8 @@ def main():
         file_list = {
             sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=True) for sname in sampleInfo
         }
-
-
-        file_list['DYJets_MiNNLO_Mu_Supp'] = si.makeListOfInputRootFilesForProcess("DYJets_MiNNLO_Mu_Supp", sampleInfo, pkl_file, xroot, lim=-1, checkOpen=True)
+        
+        #file_list['DYJets_MiNNLO_Mu_Supp'] = si.makeListOfInputRootFilesForProcess("DYJets_MiNNLO_Mu_Supp", sampleInfo, pkl_file, xroot, lim=20, checkOpen=True)
         #file_list = {'DYJets_HERWIG': [#'~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN.root',
         #                               '~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN_inNANOAODGEN.root']}
         
@@ -539,14 +538,14 @@ def main():
                         provider=CondorProvider(
                             nodes_per_block=1,
                             init_blocks=20,
-                            max_blocks=400,
+                            max_blocks=600,
                             scheduler_options='should_transfer_files = YES\n transfer_output_files = ""\n',
                             worker_init="\n".join(env_extra + condor_extra),
                             walltime="00:50:00",
                         ),
                     )
                 ],
-                retries=10,
+                retries=20,
                 retry_handler=retry_handler,
             )
             dfk = parsl.load(htex_config)

@@ -50,8 +50,8 @@ def getRootFilesFromPath(d, lim=None):
 
     return rootfiles
 
-def getFilesFromDas(ds, site):
-    allfiles = str(subprocess.check_output(str('/cvmfs/cms.cern.ch/common/dasgoclient -query="instance=prod/%s file dataset=%s"'%(site, ds.strip())), 
+def getFilesFromDas(ds, instance):
+    allfiles = str(subprocess.check_output(str('/cvmfs/cms.cern.ch/common/dasgoclient -query="instance=%s file dataset=%s"'%(instance, ds.strip())), 
                                            shell=True), 'utf-8').split("\n")
     #print(ds, allfiles)
     return allfiles
@@ -68,15 +68,14 @@ def makeDasQueryAndPickle(inpfile, pklFileName="./FilesOnDas.pkl"):
             sample = line.strip()
             dsname = sample.split("/")[1]
             Tier = sample.split("/")[3] # NANOAODSIM for regular samples, USER for provate
+            instance="prod/global"
             if Tier=="USER":
-                site="phys03"
-            else:
-                site="global"
-            print("Getting file list for sample=%s, ds=%s,  tier=%s,  site=%s"%(sample,dsname,Tier,site))
+                instance="prod/phys03"
+            print("Getting file list for sample=%s, ds=%s,  tier=%s,  instance=%s"%(sample,dsname,Tier,instance))
             if dsname in allFiles.keys():
-                allFiles[dsname].extend(getFilesFromDas(sample,site))
+                allFiles[dsname].extend(getFilesFromDas(sample,instance))
             else:
-                allFiles[dsname] = getFilesFromDas(sample,site)
+                allFiles[dsname] = getFilesFromDas(sample,instance)
             print("Found %i files"%len(allFiles[dsname]))
     # 
     # print(allFiles)
@@ -183,7 +182,7 @@ if __name__ == "__main__":
     #xroot = 'root://cms-xrd-global.cern.ch/'
     xroot = 'root://grid-cms-xrootd.physik.rwth-aachen.de/'
    
-    pkl_file = "./VJetsPickle_v3.pkl"
+    pkl_file = "./VJetsPickle.pkl"
     #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
     #file_list = makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
     file_list = makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=2, checkOpen=True)
