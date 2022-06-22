@@ -5,7 +5,8 @@ name=DYJets_inc_MiNNLO_Mu dir=/DYJetsToMuMu_M-50_massWgtFix_TuneCP5_13TeV-powheg
 #name=DYJets_HERWIG dir=/Local xsec=6430  kfac=1.0  # File produced by Kostas
 #name=DYJets_HERWIG dir=/DYJetsToLL_M-50_TuneCH3_13TeV-madgraphMLM-herwig7 xsec=3200  kfac=1.0
 #name=DYJets_MiNNLO_Mu_Supp dir=/ZJ_bornsuppfact_MiNNLO_TuneCP5_Test2_RunIISummer20UL xsec=1901  kfac=2.0
-name=DYJets_MiNNLO_Mu_Supp dir=/DYJetsToMuMu_BornSuppress_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1901  kfac=2.0
+#name=DYJets_MiNNLO_Mu_Supp dir=/DYJetsToMuMu_BornSuppress_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1901  kfac=2.0
+name=DYJets_MiNNLO_Mu_Supp dir=/DYJetsToMuMu_BornSuppressV2_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos xsec=1901  kfac=2.0
 
 #name=DYJets_0J dir=/DYJetsToLL_0J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=5127  kfac=1.0
 #name=DYJets_1J dir=/DYJetsToLL_1J_TuneCP5_13TeV-amcatnloFXFX-pythia8 xsec=958.2  kfac=1.0

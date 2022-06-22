@@ -29,7 +29,8 @@ class Processor(processor.ProcessorABC):
         axis = { "dataset": hist.Cat("dataset", ""),
                  "LHE_Vpt": hist.Bin("LHE_Vpt", "LHE V PT [GeV]", 100, 0, 400),
                  "LHE_HT":  hist.Bin("LHE_HT", "LHE HT [GeV]", 100, 0, 1000),
-                 'wei'         : hist.Bin("wei", "wei", 50, -10, 10),
+                 'wei'         : hist.Bin("wei", "wei", 100, -1000, 10000),
+                 'wei_sign'    : hist.Bin("wei", "wei", 50, -2, 2),
                  'nlep'        : hist.Bin("nlep", "nlep", 12, 0, 6),
                  'lep_eta'     : hist.Bin("lep_eta", "lep_eta", 50, -5, 5),
                  'lep_pt'      : hist.Bin("lep_pt", "lep_pt", 50, 0, 500),
@@ -84,7 +85,7 @@ class Processor(processor.ProcessorABC):
         LHE_Njets = ak.num(LHEjets)
         
 
-        if dataset in ['DYJets_inc_FXFX']:
+        if dataset in ['DYJets_inc_FXFX','DYJets_MiNNLO_Mu_Supp']:
             weight_nosel = events.genWeight
         else:
             weight_nosel= np.sign(events.genWeight)
@@ -97,7 +98,8 @@ class Processor(processor.ProcessorABC):
         output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
         output['LHE_HT'].fill(dataset=dataset, LHE_HT=LHE_HT, weight=weight_nosel)
 
-        output['wei'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel))
+        output['wei'].fill(dataset=dataset, wei=weight_nosel, weight=weight_nosel)
+        output['wei_sign'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel), weight=weight_nosel)
 
         output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons), weight=weight_nosel)
 
@@ -149,7 +151,7 @@ class Processor(processor.ProcessorABC):
         dijet_dr = dijets[:, 0].delta_r(dijets[:, 1])
 
 
-        if dataset in ['DYJets_inc_FXFX']:
+        if dataset in ['DYJets_inc_FXFX','DYJets_MiNNLO_Mu_Supp']:
             weight = selected_events.genWeight
         else:
             weight = np.sign(selected_events.genWeight)
@@ -267,6 +269,8 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
     for observable, histogram in histograms.items():
         if observable=="dijet_dr_neg":
             obs_axis="dijet_dr"
+        elif observable=="wei_sign":
+            obs_axis="wei"
         else:
             obs_axis=observable
         #print (observable, histogram, type(histogram))
@@ -290,9 +294,9 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                               gridspec_kw={"height_ratios": (2, 1)},sharex=True)
                 fig.subplots_adjust(hspace=.07)
                 
-                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C2','C0','C1']}, overflow='none')
+                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C2','C1','C0']}, overflow='none')
                 ax.set_ylim(0, None)
-                if obs_axis in ['LHE_HT']:
+                if obs_axis in ['LHE_HT','wei']:
                     ax.set_ylim(1, None)
                     ax.set_yscale('log')
 
@@ -394,7 +398,7 @@ def main():
     parser.add_argument('-o','--outdir', type=str, default="plots_default", help="Directory to output the plots.")
     parser.add_argument('--pkl', type=str, default=None,  help="Make plots from pickled file.")
     parser.add_argument('-n','--numberOfFiles', type=int, default=None,  help="Number of files to process per sample")
-    parser.add_argument('-t','--proc_type', type=str, default="ul", choices=["ul","pre"], help="Version of the code to run. 'ul' -- for UL samples; 'pre' - pre-UP samples (2016/2017 stadu)")
+    parser.add_argument('-t','--proc_type', type=str, default="ul", choices=["ul","pre"], help="Version of the code to run. 'ul' -- for UL samples; 'pre' - pre-UP samples (2016/2017 study)")
     parser.add_argument('-e','--executor', type=str, default="local", choices=["local","dask","parsl"], help="Executor")
     parser.add_argument("-d","--debug",  type=int,  default=0, help="Verbose level for debugging")
 
@@ -449,7 +453,7 @@ def main():
         sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
 
         file_list = {
-            sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=True) for sname in sampleInfo
+            sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=False) for sname in sampleInfo
         }
         
         #file_list['DYJets_MiNNLO_Mu_Supp'] = si.makeListOfInputRootFilesForProcess("DYJets_MiNNLO_Mu_Supp", sampleInfo, pkl_file, xroot, lim=20, checkOpen=True)
