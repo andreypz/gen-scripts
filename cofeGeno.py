@@ -124,8 +124,11 @@ class Processor(processor.ProcessorABC):
         elif self.proc_type=="ul":
             LHE_vpt_cut = True
 
-        jets25['isClean'] = isClean(jets25, leptons, drmin=0.5)
-        j_isclean = isClean(jets25, leptons, drmin=0.5)
+        # jets25['isClean'] = isClean(jets25, leptons, drmin=0.5)
+        #j_isclean = isClean(jets25, leptons, drmin=0.5)
+        # From: https://github.com/CoffeaTeam/coffea/discussions/497#discussioncomment-600052
+        j_isclean = ak.all(jets25.metric_table(leptons) > 0.5, axis=2)
+        # NB: this gives identical result to the isClean() fuction above
 
         #good_jets = jets
         good_jets = jets25[j_isclean]
