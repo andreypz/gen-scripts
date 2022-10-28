@@ -14,6 +14,8 @@ from functools import partial
 from Coffea_NanoGEN_schema import NanoGENSchema
 import sampleInfo as si
 
+scaleout=200
+
 def isClean(obj_A, obj_B, drmin=0.4):
     # From: https://github.com/oshadura/topcoffea/blob/master/topcoffea/modules/objects.py
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
@@ -72,9 +74,10 @@ class Processor(processor.ProcessorABC):
 
         particles = events.GenPart
         #leptons = particles[ (np.abs(particles.pdgId) == 13) & (particles.status == 1) & (np.abs(particles.eta)<2.5) ]
-        leptons = particles[ ((np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) ) & 
+        leptons = particles[ ((np.abs(particles.pdgId) == 11) | (np.abs(particles.pdgId) == 13) ) &
+                             ak.fill_none( (np.abs(particles.parent.pdgId) != 15), True) &
                              (particles.status == 1) & (np.abs(particles.eta)<2.5) & (particles.pt>20) ]
-                
+
         genjets = events.GenJet
         jets25 = genjets[ (np.abs(genjets.eta) < 2.5)  &  (genjets.pt > 25) ]
 
@@ -83,7 +86,7 @@ class Processor(processor.ProcessorABC):
                            (np.abs(LHEP.pdgId) == 4) | (np.abs(LHEP.pdgId) == 5) | (np.abs(LHEP.pdgId) == 21 ) ) &
                          (LHEP.status==1) ]
         LHE_Njets = ak.num(LHEjets)
-        
+
 
         if dataset in ['DYJets_inc_FXFX','DYJets_MiNNLO_Mu_Supp']:
             weight_nosel = events.genWeight
@@ -108,7 +111,7 @@ class Processor(processor.ProcessorABC):
 
         pt25  = ((dileptons['i0'].pt > 25) | (dileptons['i1'].pt > 25))
         Zmass_cut = (((dileptons['i0'] + dileptons['i1']).mass - 91.19) < 15)
-        Vpt_cut = ( (dileptons['i0'] + dileptons['i1']).pt > 100 )
+        Vpt_cut = ( (dileptons['i0'] + dileptons['i1']).pt > 10 )
         dileptonMask = pt25 & Zmass_cut & Vpt_cut
         good_dileptons = dileptons[dileptonMask]
 
@@ -134,19 +137,38 @@ class Processor(processor.ProcessorABC):
         good_jets = jets25[j_isclean]
         two_jets = (ak.num(good_jets) >= 2)
 
-        output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets), weight=weight_nosel)
 
-        LHE_Njets_cut = (LHE_Njets>=0)
-        full_selection = two_lep & two_jets & LHE_vpt_cut & LHE_Njets_cut
+        #LHE_Njets_cut = (LHE_Njets>=0)
+        selection_2l   = two_lep
+        selection_2l2j = two_lep & two_jets & LHE_vpt_cut
         #full_selection = two_lep & two_jets & Vpt_cut
         #full_selection = two_lep & two_jets & LHE_vpt_cut & vmass_cut
         #full_selection = two_lep & two_jets & vpt_cut & vmass_cut
 
-        selected_events = events[full_selection]
-        output['cutflow'][dataset]["selected_events"] += len(selected_events)
+
+        events_2l   = events[selection_2l]
+        events_2l2j = events[selection_2l2j]
+
+        output['cutflow'][dataset]["events_2l"] += len(events_2l)
+        output['cutflow'][dataset]["events_2l2j"] += len(events_2l2j)
 
 
-        dijets = good_jets[full_selection]
+        if dataset in ['DYJets_inc_FXFX','DYJets_MiNNLO_Mu_Supp']:
+            weight_full = events_2l2j.genWeight
+            weight_2l = events_2l.genWeight
+        else:
+            weight_full = np.sign(events_2l2j.genWeight)
+            weight_2l = np.sign(events_2l.genWeight)
+        #weight = np.ones(len(events_2l2j))
+        weight2_full = np.repeat(np.array(weight_full),2)
+        weight2_2l = np.repeat(np.array(weight_2l),2)
+        #print("weight length:", len(weight), len(weight2))
+        #print(leptons.eta[full_selection][:,0:2])
+
+
+        output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets[selection_2l]), weight=weight_2l)
+
+        dijets = good_jets[selection_2l2j]
         dijet = dijets[:, 0] + dijets[:, 1]
 
         dijet_pt = dijet.pt
@@ -154,32 +176,23 @@ class Processor(processor.ProcessorABC):
         dijet_dr = dijets[:, 0].delta_r(dijets[:, 1])
 
 
-        if dataset in ['DYJets_inc_FXFX','DYJets_MiNNLO_Mu_Supp']:
-            weight = selected_events.genWeight
-        else:
-            weight = np.sign(selected_events.genWeight)
-        #weight = np.ones(len(selected_events))
-        weight2 = np.repeat(np.array(weight),2)
-        #print("weight length:", len(weight), len(weight2))
-        #print(leptons.eta[full_selection][:,0:2])
+        output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[selection_2l2j]), weight=weight_full)
+        output['dilep_pt'].fill(dataset=dataset, dilep_pt=ak.flatten(vpt[selection_2l2j]), weight=weight_full)
 
-        output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[full_selection]), weight=weight)
-        output['dilep_pt'].fill(dataset=dataset, dilep_pt=ak.flatten(vpt[full_selection]), weight=weight)
+        output['lep_eta'].fill(dataset=dataset, lep_eta=ak.flatten(leptons.eta[selection_2l2j][:,0:2]), weight=weight2_full)
+        output['lep_pt'].fill(dataset=dataset, lep_pt=ak.flatten(leptons.pt[selection_2l2j][:,0:2]), weight=weight2_full)
 
-        output['lep_eta'].fill(dataset=dataset, lep_eta=ak.flatten(leptons.eta[full_selection][:,0:2]), weight=weight2)
-        output['lep_pt'].fill(dataset=dataset, lep_pt=ak.flatten(leptons.pt[full_selection][:,0:2]), weight=weight2)
+        output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(good_jets.eta[selection_2l2j][:,0:2]), weight=weight2_full)
+        output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(good_jets.pt[selection_2l2j][:,0:2]), weight=weight2_full)
 
-        output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(good_jets.eta[full_selection][:,0:2]), weight=weight2)
-        output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(good_jets.pt[full_selection][:,0:2]), weight=weight2)
-
-        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight)
-        output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight)
-        output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight)
+        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight_full)
+        output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight_full)
+        output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight_full)
 
         #print("Negative DRs:", dijet_dr[weight<0])
         #print("Negative wei:", weight[weight<0])
-        neg_wei = np.abs(weight[weight<0])
-        neg_wei_dr = dijet_dr[weight<0]
+        neg_wei = np.abs(weight_full[weight_full<0])
+        neg_wei_dr = dijet_dr[weight_full<0]
         output['dijet_dr_neg'].fill(dataset=dataset, dijet_dr=neg_wei_dr, weight=neg_wei)
 
         return output
@@ -202,7 +215,7 @@ class Processor(processor.ProcessorABC):
                     }
             if self.verblvl>0:
                 print("weights = ", weights)
-                
+
             for key in accumulator:
                 if key not in ['cutflow','sumw']:
                     accumulator[key].scale(weights, axis='dataset')
@@ -211,11 +224,11 @@ class Processor(processor.ProcessorABC):
                                                                                       '2017_DY 1+2j': ['2017_DY1J', '2017_DY2J'],
                                                                                   })
         elif self.proc_type=="ul":
-            sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')            
+            sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
             weights = {sname : lumi*sampleInfo[sname]['xsec']*sampleInfo[sname]['kfac']/accumulator['sumw'][sname] for sname in accumulator['sumw'].keys()}
             if self.verblvl>0:
                 print("weights = ", weights)
-            
+
             for key in accumulator:
                 if key not in ['cutflow','sumw']:
                     accumulator[key].scale(weights, axis='dataset')
@@ -230,7 +243,7 @@ class Processor(processor.ProcessorABC):
                                                                                       'DYJets_HERWIG':  ['DYJets_HERWIG'],
 
                                                                                   })
-                    
+
         return accumulator
 
 
@@ -296,7 +309,7 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                 fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
                                               gridspec_kw={"height_ratios": (2, 1)},sharex=True)
                 fig.subplots_adjust(hspace=.07)
-                
+
                 hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C2','C1','C0']}, overflow='none')
                 ax.set_ylim(0, None)
                 if obs_axis in ['LHE_HT','wei']:
@@ -318,12 +331,10 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                     denom = histogram[samp2[0]].project(obs_axis),
                                     error_opts={'color': 'c', 'marker': 'o'},
                                     ax=rax,
-                                    denom_fill_opts={},
-                                    guide_opts={},
                                     unc='num',
                                     label=samp1[1]+"/"+samp2[1]
                                 )
-                
+
                 hist.plotratio(num = histogram[samp1[0]].project(obs_axis),
                                denom = histogram[samp3[0]].project(obs_axis),
                                error_opts={'color': 'brown', 'marker': 'v'},
@@ -337,6 +348,8 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                denom = histogram[samp3[0]].project(obs_axis),
                                error_opts={'color': 'm', 'marker': '>'},
                                ax=rax,
+                               denom_fill_opts={},
+                               guide_opts={},
                                clear = False,
                                label=samp2[1]+"/"+samp3[1],
                                unc='num'
@@ -345,21 +358,21 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
 
                 rax.set_ylabel('Ratios')
                 rax.set_ylim(0.6,1.6)
-                
+
 
             else:
-                
+
                 #hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
                 #plt.gca().autoscale()
-                
-                
+
+
                 fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
                                               gridspec_kw={"height_ratios": (3, 1)},sharex=True)
                 fig.subplots_adjust(hspace=.07)
-                
+
                 hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
                 ax.set_ylim(0, None)
-                
+
                 leg = ax.legend()
                 print(histogram["2016_DY 1+2j"].axes())
                 hist.plotratio(num = histogram["2017_DY 1+2j"].project(obs_axis),
@@ -370,10 +383,10 @@ def plot(histograms, outdir, proc_type, fromPickles=False):
                                guide_opts={},
                                unc='num'
                            )
-                
+
                 rax.set_ylabel('2017/2016 Ratio')
                 rax.set_ylim(0.5,1.5)
-                
+
         else:
             print("axes= ", axes)
             print("This should not happen. I'm not sure what to do.")
@@ -458,18 +471,18 @@ def main():
         file_list = {
             sname: si.makeListOfInputRootFilesForProcess(sname, sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles, checkOpen=False) for sname in sampleInfo
         }
-        
+
         #file_list['DYJets_MiNNLO_Mu_Supp'] = si.makeListOfInputRootFilesForProcess("DYJets_MiNNLO_Mu_Supp", sampleInfo, pkl_file, xroot, lim=20, checkOpen=True)
         #file_list = {'DYJets_HERWIG': [#'~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN.root',
         #                               '~/work/DYToLL_NLO_5FS_TuneCH3_13TeV_matchbox_herwig7_cff_py_GEN_NANOGEN_inNANOAODGEN.root']}
-        
+
         '''
         file_list = {
             'DYJets_inc_MLM': si.makeListOfInputRootFilesForProcess("DYJets_inc_MLM", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_FXFX': si.makeListOfInputRootFilesForProcess("DYJets_inc_FXFX", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_MiNNLO_Mu': si.makeListOfInputRootFilesForProcess("DYJets_inc_MiNNLO_Mu", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_inc_MiNNLO_El': si.makeListOfInputRootFilesForProcess("DYJets_inc_MiNNLO_El", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
-            
+
             'DYJets_0J': si.makeListOfInputRootFilesForProcess("DYJets_0J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_1J': si.makeListOfInputRootFilesForProcess("DYJets_1J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
             'DYJets_2J': si.makeListOfInputRootFilesForProcess("DYJets_2J", sampleInfo, pkl_file, xroot, lim=opt.numberOfFiles),
@@ -486,7 +499,7 @@ def main():
             from dask_jobqueue import HTCondorCluster
             cluster = HTCondorCluster(cores=24, memory="4GB", disk="4GB")
             cluster.scale(jobs=10)  # ask for 10 jobs
-            
+
             from dask.distributed import Client
             #client = Client(n_workers=4, threads_per_worker=2)
             client = Client(cluster)
@@ -500,7 +513,7 @@ def main():
             )
 
         elif  opt.executor=="parsl":
-           
+
 
             try:
                 from os import popen, environ, getcwd
@@ -511,7 +524,7 @@ def main():
             print(_x509_localpath)
             _x509_path = environ['HOME'] + f'/.{_x509_localpath.split("/")[-1]}'
             system(f'cp {_x509_localpath} {_x509_path}')
-            
+
             env_extra = [
                 'export XRD_RUNFORKHANDLER=1',
                 f'export X509_USER_PROXY={_x509_path}',
@@ -519,23 +532,25 @@ def main():
                 f"export PYTHONPATH=$PYTHONPATH:{getcwd()}",
             ]
             condor_extra = [
-                'source ~/work/vjets/conda_setup.sh',
+                f'echo {getcwd()}',
+                f'ls {getcwd()}',
+                f'source {getcwd()}/CondaSetup.sh',
                 'conda activate coffea37',
                 'echo LETSGO'
             ]
-            
+
             import parsl
 
             from parsl.config import Config
             from parsl.executors import HighThroughputExecutor
             from parsl.providers import CondorProvider
-            from parsl.addresses import address_by_hostname, address_by_query 
-            
+            from parsl.addresses import address_by_hostname, address_by_query
+
             # For local executor
             #from parsl.app.app import python_app, bash_app
             #from parsl.configs.local_threads import config
             #parsl.load(config)
-            
+
             htex_config = Config(
                 executors=[
                     HighThroughputExecutor(
@@ -544,8 +559,8 @@ def main():
                         max_workers=1,
                         provider=CondorProvider(
                             nodes_per_block=1,
-                            init_blocks=20,
-                            max_blocks=600,
+                            init_blocks=scaleout,
+                            max_blocks=scaleout+10,
                             scheduler_options='should_transfer_files = YES\n transfer_output_files = ""\n',
                             worker_init="\n".join(env_extra + condor_extra),
                             walltime="00:50:00",
@@ -576,7 +591,7 @@ def main():
                                               executor = processor.futures_executor,
                                               executor_args = {'schema': NanoGENSchema, "workers":10}
             )
-            
+
 
 
 
