@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
-from os import listdir, makedirs, path, system
+from os import listdir, makedirs, path, system, getpid
+import psutil
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
 import pickle as pkl
 from matplotlib import pyplot as plt
-from coffea import hist
+import hist as Hist
+from hist.intervals import ratio_uncertainty
+import mplhep as hep
 import coffea.processor as processor
 import awkward as ak
 from coffea.nanoevents import NanoEventsFactory
@@ -28,38 +31,40 @@ class Processor(processor.ProcessorABC):
         self.proc_type = proc_type
         self.verblvl = verblvl
 
-        axis = { "dataset": hist.Cat("dataset", ""),
-                 "LHE_Vpt": hist.Bin("LHE_Vpt", "LHE V PT [GeV]", 100, 0, 400),
-                 "LHE_HT":  hist.Bin("LHE_HT", "LHE HT [GeV]", 100, 0, 1000),
-                 'wei'         : hist.Bin("wei", "wei", 100, -1000, 10000),
-                 'wei_sign'    : hist.Bin("wei", "wei", 50, -2, 2),
-                 'nlep'        : hist.Bin("nlep", "nlep", 12, 0, 6),
-                 'lep_eta'     : hist.Bin("lep_eta", "lep_eta", 50, -5, 5),
-                 'lep_pt'      : hist.Bin("lep_pt", "lep_pt", 50, 0, 500),
-                 'dilep_m'     : hist.Bin("dilep_m", "dilep_m", 50, 50, 120),
-                 'dilep_pt'    : hist.Bin("dilep_pt", "dilep_pt", 100, 0, 600),
-                 'njet25'      : hist.Bin("njet25", "njet25", 12, 0, 6),
-                 'jet_eta'     : hist.Bin("jet_eta", "jet_eta", 50, -5, 5),
-                 'jet_pt'      : hist.Bin("jet_pt", "jet_pt", 50, 0, 500),
-                 'dijet_m'     : hist.Bin("dijet_m", "dijet_m", 50, 0, 1200),
-                 'dijet_pt'    : hist.Bin("dijet_pt", "dijet_pt", 100, 0, 600),
-                 'dijet_dr'    : hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5),
-                 'dijet_dr_neg': hist.Bin("dijet_dr", "dijet_dr", 50, 0, 5)
-             }
+        axis = {
+            #"dataset"     : Hist.axis.StrCategory([],      name="dataset", label="Primary dataset", growth=True),
+            "LHE_Vpt"     : Hist.axis.Regular(100, 0, 400, name="LHE_Vpt", label="LHE V PT [GeV]"),
+            "LHE_HT"      : Hist.axis.Regular(100, 0, 1000, name="LHE_HT", label="LHE HT [GeV]"),
+            'wei'         : Hist.axis.Regular(100, -1000, 10000, name="wei", label="wei"),
+            'wei_sign'    : Hist.axis.Regular(50, -2, 2,   name="wei",      label="wei"),
+            'nlep'        : Hist.axis.Regular(12, 0, 6,    name="nlep",     label="nlep"),
+            'lep_eta'     : Hist.axis.Regular(50, -5, 5,   name="lep_eta",  label="lep_eta"),
+            'lep_pt'      : Hist.axis.Regular(50, 0, 500,  name="lep_pt",   label="lep_pt"),
+            'dilep_m'     : Hist.axis.Regular(50, 50, 120, name="dilep_m",  label="dilep_m"),
+            'dilep_pt'    : Hist.axis.Regular(100, 0, 600, name="dilep_pt", label="dilep_pt"),
+            'njet25'      : Hist.axis.Regular(12, 0, 6,    name="njet25",   label="njet25"),
+            'jet_eta'     : Hist.axis.Regular(50, -5, 5,   name="jet_eta",  label="jet_eta"),
+            'jet_pt'      : Hist.axis.Regular(50, 0, 500,  name="jet_pt",   label="jet_pt"),
+            'dijet_m'     : Hist.axis.Regular(50, 0, 1200, name="dijet_m",  label="dijet_m"),
+            'dijet_pt'    : Hist.axis.Regular(100, 0, 600, name="dijet_pt", label="dijet_pt"),
+            'dijet_dr'    : Hist.axis.Regular(50, 0, 5,    name="dijet_dr", label="dijet_dr"),
+            #'dijet_dr_neg': Hist.axis.Regular(50, 0, 5,    name="dijet_dr", label="dijet_dr")
+        }
 
         self._accumulator = processor.dict_accumulator(
-            {observable : hist.Hist("Counts", axis["dataset"], var_axis) for observable, var_axis in axis.items() if observable!="dataset"}
+            {observable : Hist.Hist(var_axis, name="Counts", storage="Weight") for observable, var_axis in axis.items() if observable!="dataset"}
         )
         self._accumulator['cutflow'] = processor.defaultdict_accumulator( partial(processor.defaultdict_accumulator, int) )
-        self._accumulator["sumw"] =  processor.defaultdict_accumulator( float )
+        self._accumulator["sumw"] =  0
 
+        print("\t Init : ", psutil.Process(getpid()).memory_info().rss / 1024 ** 2, "MB")
 
     @property
     def accumulator(self):
         return self._accumulator
 
     def process(self, events):
-        output = self.accumulator.identity()
+        output = self.accumulator
         #print(output)
 
         dataset = events.metadata["dataset"]
@@ -96,15 +101,15 @@ class Processor(processor.ProcessorABC):
         if self.verblvl>0:
             print("\n",dataset, "wei:", weight_nosel)
 
-        output["sumw"][dataset] += np.sum(weight_nosel)
+        output["sumw"] += np.sum(weight_nosel)
 
-        output['LHE_Vpt'].fill(dataset=dataset, LHE_Vpt=LHE_Vpt, weight=weight_nosel)
-        output['LHE_HT'].fill(dataset=dataset, LHE_HT=LHE_HT, weight=weight_nosel)
+        output['LHE_Vpt'].fill(LHE_Vpt=LHE_Vpt, weight=weight_nosel)
+        output['LHE_HT'].fill(LHE_HT=LHE_HT, weight=weight_nosel)
 
-        output['wei'].fill(dataset=dataset, wei=weight_nosel, weight=weight_nosel)
-        output['wei_sign'].fill(dataset=dataset, wei=weight_nosel/np.abs(weight_nosel), weight=weight_nosel)
+        output['wei'].fill(wei=weight_nosel, weight=weight_nosel)
+        output['wei_sign'].fill(wei=weight_nosel/np.abs(weight_nosel), weight=weight_nosel)
 
-        output['nlep'].fill(dataset=dataset, nlep=ak.num(leptons), weight=weight_nosel)
+        output['nlep'].fill(nlep=ak.num(leptons), weight=weight_nosel)
 
 
         dileptons = ak.combinations(leptons, 2, fields=['i0', 'i1'])
@@ -166,7 +171,7 @@ class Processor(processor.ProcessorABC):
         #print(leptons.eta[full_selection][:,0:2])
 
 
-        output['njet25'].fill(dataset=dataset, njet25=ak.num(good_jets[selection_2l]), weight=weight_2l)
+        output['njet25'].fill(njet25=ak.num(good_jets[selection_2l]), weight=weight_2l)
 
         dijets = good_jets[selection_2l2j]
         dijet = dijets[:, 0] + dijets[:, 1]
@@ -176,34 +181,37 @@ class Processor(processor.ProcessorABC):
         dijet_dr = dijets[:, 0].delta_r(dijets[:, 1])
 
 
-        output['dilep_m'].fill(dataset=dataset, dilep_m=ak.flatten(vmass[selection_2l2j]), weight=weight_full)
-        output['dilep_pt'].fill(dataset=dataset, dilep_pt=ak.flatten(vpt[selection_2l2j]), weight=weight_full)
+        output['dilep_m'].fill(dilep_m=ak.flatten(vmass[selection_2l2j]), weight=weight_full)
+        output['dilep_pt'].fill(dilep_pt=ak.flatten(vpt[selection_2l2j]), weight=weight_full)
 
-        output['lep_eta'].fill(dataset=dataset, lep_eta=ak.flatten(leptons.eta[selection_2l2j][:,0:2]), weight=weight2_full)
-        output['lep_pt'].fill(dataset=dataset, lep_pt=ak.flatten(leptons.pt[selection_2l2j][:,0:2]), weight=weight2_full)
+        output['lep_eta'].fill(lep_eta=ak.flatten(leptons.eta[selection_2l2j][:,0:2]), weight=weight2_full)
+        output['lep_pt'].fill(lep_pt=ak.flatten(leptons.pt[selection_2l2j][:,0:2]), weight=weight2_full)
 
-        output['jet_eta'].fill(dataset=dataset, jet_eta=ak.flatten(good_jets.eta[selection_2l2j][:,0:2]), weight=weight2_full)
-        output['jet_pt'].fill(dataset=dataset, jet_pt=ak.flatten(good_jets.pt[selection_2l2j][:,0:2]), weight=weight2_full)
+        output['jet_eta'].fill(jet_eta=ak.flatten(good_jets.eta[selection_2l2j][:,0:2]), weight=weight2_full)
+        output['jet_pt'].fill(jet_pt=ak.flatten(good_jets.pt[selection_2l2j][:,0:2]), weight=weight2_full)
 
-        output['dijet_dr'].fill(dataset=dataset, dijet_dr=dijet_dr, weight=weight_full)
-        output['dijet_m'].fill(dataset=dataset, dijet_m=dijet_m, weight=weight_full)
-        output['dijet_pt'].fill(dataset=dataset, dijet_pt=dijet_pt, weight=weight_full)
+        output['dijet_dr'].fill(dijet_dr=dijet_dr, weight=weight_full)
+        output['dijet_m'].fill(dijet_m=dijet_m, weight=weight_full)
+        output['dijet_pt'].fill(dijet_pt=dijet_pt, weight=weight_full)
 
-        #print("Negative DRs:", dijet_dr[weight<0])
-        #print("Negative wei:", weight[weight<0])
-        neg_wei = np.abs(weight_full[weight_full<0])
-        neg_wei_dr = dijet_dr[weight_full<0]
-        output['dijet_dr_neg'].fill(dataset=dataset, dijet_dr=neg_wei_dr, weight=neg_wei)
+        ##print("Negative DRs:", dijet_dr[weight<0])
+        ##print("Negative wei:", weight[weight<0])
+        #neg_wei = np.abs(weight_full[weight_full<0])
+        #neg_wei_dr = dijet_dr[weight_full<0]
+        #output['dijet_dr_neg'].fill(dijet_dr=neg_wei_dr, weight=neg_wei)
 
-        return output
+        return {dataset:output}
 
     def postprocess(self, accumulator):
-
         lumi = 11 # random lumi, it does not matter here
 
-        print(accumulator['sumw'])
+        for dataset in accumulator:
+            print(dataset, accumulator[dataset]['sumw'])
+            #print(accumulator[dataset])
 
-        group_axis = hist.Cat('ds_scaled', 'ds_scaled')
+
+        group_axis = Hist.axis.StrCategory([], name="ds_scaled", label="Dataset merged", growth=True),
+
         if self.proc_type=="pre":
             #xs = si.xs_150_250
             xs = si.xs_250_400
@@ -225,180 +233,148 @@ class Processor(processor.ProcessorABC):
                                                                                   })
         elif self.proc_type=="ul":
             sampleInfo = si.ReadSampleInfoFile('mc_vjets_samples.info')
-            weights = {sname : lumi*sampleInfo[sname]['xsec']*sampleInfo[sname]['kfac']/accumulator['sumw'][sname] for sname in accumulator['sumw'].keys()}
+            weights = {sname : lumi*sampleInfo[sname]['xsec']*sampleInfo[sname]['kfac']/accumulator[sname]['sumw'] for sname in accumulator.keys()}
             if self.verblvl>0:
                 print("weights = ", weights)
 
-            for key in accumulator:
-                if key not in ['cutflow','sumw']:
-                    accumulator[key].scale(weights, axis='dataset')
-                    accumulator[key] = accumulator[key].group('dataset', group_axis, {'DYJets_inc_MLM':  ['DYJets_inc_MLM'],
-                                                                                      'DYJets_inc_FXFX': ['DYJets_inc_FXFX'],
-                                                                                      'DYJets_MiNNLO': ['DYJets_inc_MiNNLO_Mu','DYJets_inc_MiNNLO_El'],
-                                                                                      'DYJets_MiNNLO_Supp': ['DYJets_MiNNLO_Mu_Supp'],
-                                                                                      'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'],
-                                                                                      'DYJets_PT_FXFX':  ['DYJets_Pt50To100','DYJets_Pt100To250','DYJets_Pt250To400','DYJets_Pt400To650','DYJets_Pt650ToInf'],
-                                                                                      'xDYJets_PT_FXFX':  ['xDYJets_Pt50To100','xDYJets_Pt100To250','xDYJets_Pt250To400','xDYJets_Pt400To650','xDYJets_Pt650ToInf'],
-                                                                                      'DYJets_HT_MLM': ['DYJets_HT70to100','DYJets_HT100to200','DYJets_HT200to400','DYJets_HT400to600','DYJets_HT600to800','DYJets_HT800to1200','DYJets_HT1200to2500','DYJets_HT2500toInf'],
-                                                                                      'DYJets_HERWIG':  ['DYJets_HERWIG'],
+            for ds in accumulator:
+                for key in accumulator[ds]:
+                    if key not in ['cutflow','sumw']:
+                        accumulator[ds][key] *= weights[ds]
 
-                                                                                  })
+            #accumulator["DYJets_MiNNLO"] = processor.accumulate([accumulator["DYJets_inc_MiNNLO_Mu"],accumulator["DYJets_inc_MiNNLO_El"]] )
+            accumulator["DYJets_MiNNLO"] = accumulator["DYJets_inc_MiNNLO_Mu"]
+            del accumulator["DYJets_inc_MiNNLO_Mu"]
+            accumulator["DYJets_MiNNLO_Supp"] = accumulator["DYJets_MiNNLO_Mu_Supp"]
+            del accumulator["DYJets_MiNNLO_Mu_Supp"]
 
+            """
+                        accumulator[ds][key] = accumulator[ds][key].group('dataset', group_axis, {'DYJets_inc_MLM':  ['DYJets_inc_MLM'],
+                                                                                                  'DYJets_inc_FXFX': ['DYJets_inc_FXFX'],
+                                                                                                  'DYJets_MiNNLO': ['DYJets_inc_MiNNLO_Mu','DYJets_inc_MiNNLO_El'],
+                                                                                                  'DYJets_MiNNLO_Supp': ['DYJets_MiNNLO_Mu_Supp'],
+                                                                                                  'DYJets_NJ_FXFX':  ['DYJets_0J','DYJets_1J','DYJets_2J'],
+                                                                                                  'DYJets_PT_FXFX':  ['DYJets_Pt50To100','DYJets_Pt100To250','DYJets_Pt250To400','DYJets_Pt400To650','DYJets_Pt650ToInf'],
+                                                                                                  'xDYJets_PT_FXFX':  ['xDYJets_Pt50To100','xDYJets_Pt100To250','xDYJets_Pt250To400','xDYJets_Pt400To650','xDYJets_Pt650ToInf'],
+                                                                                                  'DYJets_HT_MLM': ['DYJets_HT70to100','DYJets_HT100to200','DYJets_HT200to400','DYJets_HT400to600','DYJets_HT600to800','DYJets_HT800to1200','DYJets_HT1200to2500','DYJets_HT2500toInf'],
+                                                                                                  'DYJets_HERWIG':  ['DYJets_HERWIG'],
+                                                                                                  
+                                                                                              })
+            """
         return accumulator
 
 
-
-def fracOfNegWeiPlot(histograms, outdir, year="2016"):
-
-    if histograms["dijet_dr"] and histograms["dijet_dr_neg"]:
-
-        print(histograms)
-        h_tot = histograms["dijet_dr"]
-        h_neg = histograms["dijet_dr_neg"]
-        fig, ax = plt.subplots()
-
-        #leg = plt.legend()
-        hist.plotratio(num = h_neg[year+"_DY 1+2j"].project("dijet_dr"),
-                       denom = h_tot[year+"_DY 1+2j"].project("dijet_dr"),
-                       error_opts={'color': 'k', 'marker': '.'},
-                       ax=ax,
-                       #denom_fill_opts={},
-                       #guide_opts={},
-                       unc='num'
-        )
-
-        ax.set_ylabel('Negative/Total Ratio')
-        ax.set_ylim(0.1,1.5)
-        plt.title(f"Contribution from negative weights in {year} sample.")
-        plt.gcf().savefig(f"{outdir}/NegWeiFrac_{year}.png", bbox_inches='tight')
-    else:
-        print("The hists for Neg weight plot do not exist!")
-
-def plot(histograms, outdir, proc_type, fromPickles=False):
-    '''Plots all histograms. No need to change.'''
-    if not path.exists(outdir):
-        makedirs(outdir)
+def plot(accumulated, opt, fromPickles=False):
+    '''Plot all histograms'''
+    if not path.exists(opt.outdir):
+        makedirs(opt.outdir)
 
     if not fromPickles:
-        pkl.dump( histograms,  open(outdir+'/Pickles.pkl',  'wb')  )
+        pkl.dump( accumulated,  open(opt.outdir+'/Pickles.pkl',  'wb')  )
 
-    for observable, histogram in histograms.items():
+    datasets = ['DYJets_MiNNLO','DYJets_MiNNLO_Supp','DYJets_inc_FXFX']
+    for dataset, accum in accumulated.items():
+        if opt.debug>1:
+            print(dataset, accum)
+        observables = accumulated[dataset].keys()
+        #datasets.append(dataset)
+
+    if opt.debug>0:
+        print("observables:", observables)
+        print("datasets:", datasets)
+        
+    for observable in observables:
+        if observable in ['cutflow','sumw']: continue
         if observable=="dijet_dr_neg":
             obs_axis="dijet_dr"
         elif observable=="wei_sign":
             obs_axis="wei"
         else:
             obs_axis=observable
-        #print (observable, histogram, type(histogram))
-        if type(histogram) is hist.hist_tools.Hist:
-            print(observable, "I am a Hist", histogram)
-            if not histogram.values():
-                print("This hist is empty!", histogram.values())
-                continue
-        else:
-            continue
+        #if opt.debug>0:
+        #    print (observable, type(accumulated[]))
+        #if type(histogram) is hist.hist_tools.Hist:
+        #    print(observable, "I am a Hist", histogram)
+        #    if not histogram.values():
+        #        print("This hist is empty!", histogram.values())
+        #        continue
+        #else:
+        #    continue
 
         plt.gcf().clf()
 
+
         #print(histogram.axes())
         #print(list(map(lambda x:x.name, histogram.axes() )))
-        axes = list(map(lambda x:x.name, histogram.axes() ))
-        if 'ds_scaled' in axes:
-            if proc_type=="ul":
-                print("Plotting for UL", "axis = ", obs_axis)
-                fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
-                                              gridspec_kw={"height_ratios": (2, 1)},sharex=True)
-                fig.subplots_adjust(hspace=.07)
+        print("Plotting dataset = ", datasets[0], "; Obs = ", observable)
+        fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(8,8),
+                                      gridspec_kw={"height_ratios": (3, 1)}, sharex=True)
+        fig.subplots_adjust(hspace=0.05, top=0.92, bottom=0.2, right=0.97)
+        hep.cms.label("Preliminary", com="13", data=False, loc=0, ax=ax)
 
-                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={"color":['C2','C1','C0']}, overflow='none')
-                ax.set_ylim(0, None)
-                if obs_axis in ['LHE_HT','wei']:
-                    ax.set_ylim(1, None)
-                    ax.set_yscale('log')
+        if opt.debug>1:
+            print(accumulated[datasets[0]][observable])
 
-                leg = ax.legend()
+        for d in datasets:
+            hep.histplot( accumulated[d][observable], label=d, histtype="step",yerr=True, ax=ax)
 
-                #samp1=['DYJets_inc_MLM','MLM']
-                #samp1=['DYJets_NJ_FXFX','NJ_FXFX']
-                samp1=['DYJets_inc_FXFX','FXFX']
-                samp2=['DYJets_MiNNLO','MiNNLO']
-                samp3=['DYJets_MiNNLO_Supp','MiNNLO_Supp']
-                #samp3=['DYJets_HERWIG','HERWIG']
+        ax.set_ylim(0, None)
+        if obs_axis in ['LHE_HT','wei']:
+            ax.set_ylim(1, None)
+            ax.set_yscale('log')
+            
+        leg = ax.legend()
 
-                #print(histogram["DYJets_inc_MLM"].axes())
-
-                r1 = hist.plotratio(num = histogram[samp1[0]].project(obs_axis),
-                                    denom = histogram[samp2[0]].project(obs_axis),
-                                    error_opts={'color': 'c', 'marker': 'o'},
-                                    ax=rax,
-                                    unc='num',
-                                    label=samp1[1]+"/"+samp2[1]
-                                )
-
-                hist.plotratio(num = histogram[samp1[0]].project(obs_axis),
-                               denom = histogram[samp3[0]].project(obs_axis),
-                               error_opts={'color': 'brown', 'marker': 'v'},
-                               ax=rax,
-                               clear = False,
-                               label=samp1[1]+"/"+samp3[1],
-                               unc='num'
-                           )
-
-                hist.plotratio(num = histogram[samp2[0]].project(obs_axis),
-                               denom = histogram[samp3[0]].project(obs_axis),
-                               error_opts={'color': 'm', 'marker': '>'},
-                               ax=rax,
-                               denom_fill_opts={},
-                               guide_opts={},
-                               clear = False,
-                               label=samp2[1]+"/"+samp3[1],
-                               unc='num'
-                           )
-                legrx = rax.legend(loc="upper center", ncol=3)
-
-                rax.set_ylabel('Ratios')
-                rax.set_ylim(0.6,1.6)
+        #samp1=['DYJets_inc_MLM','MLM']
+        #samp1=['DYJets_NJ_FXFX','NJ_FXFX']
+        samp0=['DYJets_inc_FXFX','FXFX']
+        samp1=['DYJets_MiNNLO','MiNNLO']
+        samp2=['DYJets_MiNNLO_Supp','MiNNLO_Supp']
+        #samp3=['DYJets_HERWIG','HERWIG']        
+        #print(histogram["DYJets_inc_MLM"].axes())
 
 
-            else:
+        rax.set_xlabel('')
 
-                #hist.plot1d(histogram, overlay='dataset', line_opts={}, overflow='none')
-                #plt.gca().autoscale()
+        rax.errorbar(x=accumulated[datasets[0]][observable].axes[0].centers,
+                     y=accumulated[datasets[0]][observable].values()/accumulated[datasets[1]][observable].values(),
+                     yerr=ratio_uncertainty(
+                         accumulated[datasets[0]][observable].values(), accumulated[datasets[1]][observable].values()
+                     ),
+                     marker="o", linestyle="none", color='c', elinewidth=1,
+                     label=samp0[1]+"/"+samp1[1],
+        )
+
+        rax.errorbar(x=accumulated[datasets[0]][observable].axes[0].centers,
+                     y=accumulated[datasets[2]][observable].values()/accumulated[datasets[0]][observable].values(),
+                     yerr=ratio_uncertainty(
+                         accumulated[datasets[2]][observable].values(), accumulated[datasets[0]][observable].values()
+                     ),
+                     marker="v", linestyle="none", color='brown', elinewidth=1,
+                     label=samp0[1]+"/"+samp2[1],
+        )
+
+        rax.errorbar(x=accumulated[datasets[1]][observable].axes[0].centers,
+                     y=accumulated[datasets[1]][observable].values()/accumulated[datasets[2]][observable].values(),
+                     yerr=ratio_uncertainty(
+                         accumulated[datasets[1]][observable].values(), accumulated[datasets[2]][observable].values()
+                     ),
+                     marker=">", linestyle="none", color='m', elinewidth=1,
+                     label=samp1[1]+"/"+samp2[1],
+        )
+            
+        legrx = rax.legend(loc="upper center", ncol=3)
+        rax.axhline(y=1.0, linestyle="dashed", color="gray")
+        rax.set_ylabel('Ratios')
+        rax.set_ylim(0.6,1.6)
+        rax.set_xlabel(observable)
+        
+        plt.gcf().savefig(f"{opt.outdir}/{observable}.png", bbox_inches='tight')
 
 
-                fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(7,7),
-                                              gridspec_kw={"height_ratios": (3, 1)},sharex=True)
-                fig.subplots_adjust(hspace=.07)
-
-                hist.plot1d(histogram, overlay='ds_scaled', ax=ax, line_opts={}, overflow='none')
-                ax.set_ylim(0, None)
-
-                leg = ax.legend()
-                print(histogram["2016_DY 1+2j"].axes())
-                hist.plotratio(num = histogram["2017_DY 1+2j"].project(obs_axis),
-                               denom = histogram["2016_DY 1+2j"].project(obs_axis),
-                               error_opts={'color': 'k', 'marker': '.'},
-                               ax=rax,
-                               denom_fill_opts={},
-                               guide_opts={},
-                               unc='num'
-                           )
-
-                rax.set_ylabel('2017/2016 Ratio')
-                rax.set_ylim(0.5,1.5)
-
-        else:
-            print("axes= ", axes)
-            print("This should not happen. I'm not sure what to do.")
-
-        plt.gcf().savefig(f"{outdir}/{observable}.png", bbox_inches='tight')
-
-    #fracOfNegWeiPlot(histograms, outdir, "2016")
-    #fracOfNegWeiPlot(histograms, outdir, "2017")
-
-def plotFromPickles(inputfile, outdir, proc_type):
+def plotFromPickles(inputfile, opt):
     hists = pkl.load(open(inputfile,'rb'))
-    plot(hists, outdir, proc_type, fromPickles=False)
+    plot(hists, opt, fromPickles=False)
 
 def retry_handler(exception, task_record):
     from parsl.executors.high_throughput.interchange import ManagerLost
@@ -595,15 +571,15 @@ def main():
 
 
 
-        plot(output, opt.outdir, opt.proc_type)
+        plot(output, opt)
 
 
-        for key, value in output['cutflow'].items():
-            print(key, value)
-            for key2, value2 in output['cutflow'][key].items():
-                print(key, key2,value2)
-        for key, value in output['sumw'].items():
-            print(key, value)
+        for key, value in output.items():
+            #print(key, value)
+            for key2, value2 in output[key]['cutflow'][key].items():
+                print(key, key2, value2)
+        for key, value in output.items():
+            print(key, value['sumw'])
 
 
 
