@@ -17,7 +17,7 @@ from functools import partial
 from Coffea_NanoGEN_schema import NanoGENSchema
 import sampleInfo as si
 
-scaleout=200
+scaleout=400
 
 def isClean(obj_A, obj_B, drmin=0.4):
     # From: https://github.com/oshadura/topcoffea/blob/master/topcoffea/modules/objects.py
@@ -272,7 +272,14 @@ def plot(accumulated, opt, fromPickles=False):
     if not fromPickles:
         pkl.dump( accumulated,  open(opt.outdir+'/Pickles.pkl',  'wb')  )
 
-    datasets = ['DYJets_MiNNLO','DYJets_MiNNLO_Supp','DYJets_inc_FXFX']
+    datasets = [['DYJets_MiNNLO', 'MiNNLO', 'C2', 'c'],
+                ['DYJets_MiNNLO_Supp', 'MiNNLO_Supp', 'C1', 'brown'],
+                ['DYJets_inc_FXFX', 'FXFX', 'C0', 'm']
+                ]
+    #samp1=['DYJets_inc_MLM','MLM']
+    #samp1=['DYJets_NJ_FXFX','NJ_FXFX']
+    #samp3=['DYJets_HERWIG','HERWIG']        
+    
     for dataset, accum in accumulated.items():
         if opt.debug>1:
             print(dataset, accum)
@@ -284,39 +291,28 @@ def plot(accumulated, opt, fromPickles=False):
         print("datasets:", datasets)
         
     for observable in observables:
+        print("Plotting Observable = ", observable)
         if observable in ['cutflow','sumw']: continue
+
         if observable=="dijet_dr_neg":
             obs_axis="dijet_dr"
         elif observable=="wei_sign":
             obs_axis="wei"
         else:
             obs_axis=observable
-        #if opt.debug>0:
-        #    print (observable, type(accumulated[]))
-        #if type(histogram) is hist.hist_tools.Hist:
-        #    print(observable, "I am a Hist", histogram)
-        #    if not histogram.values():
-        #        print("This hist is empty!", histogram.values())
-        #        continue
-        #else:
-        #    continue
 
         plt.gcf().clf()
 
-
-        #print(histogram.axes())
-        #print(list(map(lambda x:x.name, histogram.axes() )))
-        print("Plotting dataset = ", datasets[0], "; Obs = ", observable)
         fig, (ax, rax) = plt.subplots(nrows=2, ncols=1, figsize=(8,8),
                                       gridspec_kw={"height_ratios": (3, 1)}, sharex=True)
         fig.subplots_adjust(hspace=0.05, top=0.92, bottom=0.2, right=0.97)
         hep.cms.label("Preliminary", com="13", data=False, loc=0, ax=ax)
 
         if opt.debug>1:
-            print(accumulated[datasets[0]][observable])
+            print(accumulated[datasets[0][0]][observable])
 
         for d in datasets:
-            hep.histplot( accumulated[d][observable], label=d, histtype="step",yerr=True, ax=ax)
+            hep.histplot( accumulated[d[0]][observable], label=d[0], color=d[2], histtype="step", yerr=True, ax=ax)
 
         ax.set_ylim(0, None)
         if obs_axis in ['LHE_HT','wei']:
@@ -325,42 +321,36 @@ def plot(accumulated, opt, fromPickles=False):
             
         leg = ax.legend()
 
-        #samp1=['DYJets_inc_MLM','MLM']
-        #samp1=['DYJets_NJ_FXFX','NJ_FXFX']
-        samp0=['DYJets_inc_FXFX','FXFX']
-        samp1=['DYJets_MiNNLO','MiNNLO']
-        samp2=['DYJets_MiNNLO_Supp','MiNNLO_Supp']
-        #samp3=['DYJets_HERWIG','HERWIG']        
-        #print(histogram["DYJets_inc_MLM"].axes())
-
 
         rax.set_xlabel('')
 
-        rax.errorbar(x=accumulated[datasets[0]][observable].axes[0].centers,
-                     y=accumulated[datasets[0]][observable].values()/accumulated[datasets[1]][observable].values(),
-                     yerr=ratio_uncertainty(
-                         accumulated[datasets[0]][observable].values(), accumulated[datasets[1]][observable].values()
-                     ),
+
+        v0 = [accumulated[datasets[0][0]][observable].values(), accumulated[datasets[0][0]][observable].variances()]
+        v1 = [accumulated[datasets[1][0]][observable].values(), accumulated[datasets[1][0]][observable].variances()]
+        v2 = [accumulated[datasets[2][0]][observable].values(), accumulated[datasets[2][0]][observable].variances()]
+
+        x0 = accumulated[datasets[0][0]][observable].axes[0].centers
+        #yerr3=ratio_uncertainty(v0[0], v1[0])
+        yerr_0_1 = (v0[0]/v1[0])*np.sqrt( v0[1]/v0[0]**2 + v1[1]/v1[0]**2 )
+        yerr_2_0 = (v2[0]/v0[0])*np.sqrt( v2[1]/v2[0]**2 + v0[1]/v0[0]**2 )
+        yerr_2_1 = (v2[0]/v1[0])*np.sqrt( v2[1]/v2[0]**2 + v1[1]/v1[0]**2 )
+
+        #err = np.sqrt((1/values_1)**2 * variances_2 + (values_2/values_1**2)**2 * variances_1 )
+
+
+        rax.fill_between(x0, 1-yerr_0_1, 1+yerr_0_1, color='grey', alpha=0.5)
+
+        rax.errorbar(x=x0, y=v2[0]/v0[0], yerr=yerr_2_0,
                      marker="o", linestyle="none", color='c', elinewidth=1,
-                     label=samp0[1]+"/"+samp1[1],
+                     label=datasets[2][1]+"/"+datasets[0][1],
         )
-
-        rax.errorbar(x=accumulated[datasets[0]][observable].axes[0].centers,
-                     y=accumulated[datasets[2]][observable].values()/accumulated[datasets[0]][observable].values(),
-                     yerr=ratio_uncertainty(
-                         accumulated[datasets[2]][observable].values(), accumulated[datasets[0]][observable].values()
-                     ),
+        rax.errorbar(x=x0, y=v2[0]/v1[0], yerr=yerr_2_1,
                      marker="v", linestyle="none", color='brown', elinewidth=1,
-                     label=samp0[1]+"/"+samp2[1],
+                     label=datasets[2][1]+"/"+datasets[1][1],
         )
-
-        rax.errorbar(x=accumulated[datasets[1]][observable].axes[0].centers,
-                     y=accumulated[datasets[1]][observable].values()/accumulated[datasets[2]][observable].values(),
-                     yerr=ratio_uncertainty(
-                         accumulated[datasets[1]][observable].values(), accumulated[datasets[2]][observable].values()
-                     ),
+        rax.errorbar(x=x0, y=v0[0]/v1[0], yerr=yerr_0_1,
                      marker=">", linestyle="none", color='m', elinewidth=1,
-                     label=samp1[1]+"/"+samp2[1],
+                     label=datasets[0][1]+"/"+datasets[1][1],
         )
             
         legrx = rax.legend(loc="upper center", ncol=3)
